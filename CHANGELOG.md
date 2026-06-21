@@ -10,6 +10,10 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [Unreleased]
+
+Nothing yet! Just documentation changes :)
+
 ## [3.0.1] - 2026-06-21
 
 ### Fixed
