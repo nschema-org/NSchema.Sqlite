@@ -10,6 +10,16 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [3.0.1] - 2026-06-21
+
+### Fixed
+
+- `apply` now works against SQLite. `UseSqliteSchema(...)` registers a `DbDataSource` (alongside the existing introspection source) so the core's SQL executor can open connections to run the migration.
+
+### Security
+
+- Pin the bundled native SQLite library (`SQLitePCLRaw.lib.e_sqlite3`) forward to the patched 3.50.3, resolving advisory GHSA-2m69-gcr7-jv3q. This replaces the prior `NuGetAudit` suppression with an actual fix.
+
 ## [3.0.0] - 2026-06-21
 
 First release of the SQLite provider for NSchema, tracking NSchema 3.0.0.

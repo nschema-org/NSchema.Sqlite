@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 using NSchema.Schema;
 using NSchema.Schema.Model;
 using NSchema.Schema.Model.Columns;
@@ -11,11 +11,7 @@ using NSchema.Schema.Model.Views;
 namespace NSchema.SQLite.Sql;
 
 /// <summary>
-/// Reads a live SQLite database into an NSchema <see cref="DatabaseSchema"/>. Column facts come from
-/// <c>PRAGMA table_xinfo</c>; constraint names, check expressions, generated-column expressions and index
-/// definitions come from the original <c>CREATE</c> text stored in <c>sqlite_master.sql</c> (the only place
-/// SQLite preserves them — see <see cref="SqliteDdl"/>). Everything is reported under the single schema
-/// <c>main</c>, which is always returned so the schema itself is never planned as a create.
+/// Reads a live SQLite database into an NSchema <see cref="DatabaseSchema"/>.
 /// </summary>
 internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISchemaProvider
 {
@@ -56,7 +52,7 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
 
     private sealed record MasterObject(string Type, string Name, string TableName, string? Sql);
 
-    private static async Task<List<MasterObject>> ReadMaster(SqliteConnection connection, CancellationToken ct)
+    private static async Task<List<MasterObject>> ReadMaster(DbConnection connection, CancellationToken ct)
     {
         var rows = new List<MasterObject>();
         await using var command = connection.CreateCommand();
@@ -84,7 +80,7 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
 
     // ── Tables ───────────────────────────────────────────────────────────────
 
-    private static async Task<Table> BuildTable(SqliteConnection connection, MasterObject table, List<MasterObject> indexObjects, CancellationToken ct)
+    private static async Task<Table> BuildTable(DbConnection connection, MasterObject table, List<MasterObject> indexObjects, CancellationToken ct)
     {
         var definition = table.Sql is not null ? SqliteDdl.ParseCreateTable(table.Sql) : null;
         var generated = definition?.GeneratedExpressions ?? new Dictionary<string, string>();
@@ -173,7 +169,7 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
     private readonly record struct ColumnRow(string Name, string Type, bool NotNull, string? Default, int PrimaryKeyPosition);
 
     private static async IAsyncEnumerable<ColumnRow> ReadColumns(
-        SqliteConnection connection, string tableName, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+        DbConnection connection, string tableName, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
         await using var command = connection.CreateCommand();
         // table_xinfo includes generated columns; `hidden` is 0 for ordinary columns and 2/3 for generated ones,

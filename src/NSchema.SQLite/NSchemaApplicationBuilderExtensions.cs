@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using NSchema.SQLite.Sql;
@@ -18,7 +19,8 @@ public static class NSchemaApplicationBuilderExtensions
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
         public NSchemaApplicationBuilder UseSqliteSchema(string connectionString)
         {
-            builder.Services.AddSingleton(new SqliteConnectionSource(connectionString));
+            builder.Services.AddSingleton(_ => new SqliteConnectionSource(connectionString));
+            builder.Services.AddSingleton<DbDataSource>(p => p.GetRequiredService<SqliteConnectionSource>());
             return builder.UseSqliteSchema();
         }
 
@@ -37,8 +39,8 @@ public static class NSchemaApplicationBuilderExtensions
 
         /// <summary>
         /// Configures NSchema to use SQLite as the database provider by registering the schema provider and SQL
-        /// generator. A <see cref="SqliteConnectionSource"/> must already be registered (use one of the overloads
-        /// that accept a connection string to register it).
+        /// generator. A <see cref="SqliteConnectionSource"/> (and the <see cref="DbDataSource"/> the executor needs)
+        /// must already be registered (use one of the overloads that accept a connection string to register them).
         /// </summary>
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
         public NSchemaApplicationBuilder UseSqliteSchema() => builder
