@@ -14,6 +14,7 @@ As a consequence, breaking changes that are specific to this provider (rather th
 
 ## Changed
 
+- Updated `Microsoft.Data.Sqlite` from `10.0.3` to `10.0.9`.
 - **Breaking:** The casing has been changed from `SQLite` to `Sqlite` to line up with the official Microsoft packages. This applies across all namespaces, but the NuGet package will probably be stuck with the old casing.
 
 ## [3.0.1] - 2026-06-21
