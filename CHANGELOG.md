@@ -10,6 +10,12 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [3.2.1] - 2026-06-24
+
+### Fixed
+
+- The provider will now no-longer attempt to `CREATE`/`DROP` the `main` schema.
+
 ## [3.2.0] - 2026-06-21
 
 ### Added

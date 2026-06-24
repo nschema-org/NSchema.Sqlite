@@ -85,6 +85,12 @@ internal sealed class SqliteSqlGenerator : ISqlGenerator
             or SetViewComment or SetTriggerComment or SetSequenceComment or SetEnumComment or SetDomainComment
             or SetCompositeTypeComment or SetRoutineComment or SetExtensionComment => [],
 
+        // Sqlite has exactly one schema, the implicit 'main': it can be neither created nor dropped, so those actions
+        // against it are no-ops. A fresh plan against an empty database emits CreateSchema("main"), and a destroy
+        // emits DropSchema("main") alongside the explicit table drops. Any other schema name is genuinely unsupported
+        // and falls through to the throw below.
+        CreateSchema { SchemaName: "main" } or DropSchema { SchemaName: "main" } => [],
+
         _ => [new SqlStatement(GenerateSql(action))],
     };
 
