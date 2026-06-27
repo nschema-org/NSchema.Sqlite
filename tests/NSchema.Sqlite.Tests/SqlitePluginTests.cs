@@ -28,6 +28,19 @@ public sealed class SqlitePluginTests : IDisposable
         => _sut.GetScaffoldTemplate(new ScaffoldContext()).ShouldContain("PROVIDER sqlite");
 
     [Fact]
+    public void GetScaffoldTemplate_WithVersion_PinsIt()
+        => _sut.GetScaffoldTemplate(new ScaffoldContext { Version = "9.9.9" }).ShouldContain("version           = '9.9.9',");
+
+    [Fact]
+    public void GetSampleSchema_UsesTheMainSchema()
+    {
+        // SQLite exposes everything under 'main' and has no CREATE SCHEMA — the sample declares its table there.
+        var schema = _sut.GetSampleSchema();
+
+        schema.ShouldContain("CREATE TABLE main.widgets");
+    }
+
+    [Fact]
     public void Configure_ValidConnectionString_SucceedsAndRegistersProvider()
     {
         // Arrange
