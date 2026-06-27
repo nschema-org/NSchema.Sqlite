@@ -11,11 +11,21 @@ namespace NSchema.Sqlite.Tests;
 /// </summary>
 public sealed class SqlitePluginEndToEndTests : SqliteTestBase
 {
+    /// <summary>
+    /// The plugin lets <c>NSCHEMA_SQLITE_CONNECTION_STRING</c> override the configured connection string (by design).
+    /// If that variable is set in the host environment (Rider run-config, CI, a stray <c>launchctl setenv</c>), the
+    /// apply would target a different database than <see cref="SqliteTestBase.Introspect"/> reads, leaving the
+    /// assertion's live schema empty. Pinning it to the test's own connection string makes the test hermetic.
+    /// </summary>
+    private const string EnvConnectionString = "NSCHEMA_SQLITE_CONNECTION_STRING";
+
     [Fact]
     public async Task Apply_ThroughThePlugin_CreatesTheDesiredSchema()
     {
         // Arrange — a desired schema on disk (under SQLite's built-in `main` schema), configured ONLY via the plugin.
         var projectDirectory = Directory.CreateTempSubdirectory("nschema-sqlite-e2e-").FullName;
+        var priorEnvConnectionString = Environment.GetEnvironmentVariable(EnvConnectionString);
+        Environment.SetEnvironmentVariable(EnvConnectionString, ConnectionString);
         try
         {
             await File.WriteAllTextAsync(Path.Combine(projectDirectory, "schema.sql"), """
@@ -45,6 +55,7 @@ public sealed class SqlitePluginEndToEndTests : SqliteTestBase
         }
         finally
         {
+            Environment.SetEnvironmentVariable(EnvConnectionString, priorEnvConnectionString);
             Directory.Delete(projectDirectory, recursive: true);
         }
     }
