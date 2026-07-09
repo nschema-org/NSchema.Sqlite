@@ -6,6 +6,7 @@ using NSchema.Plan.Model.Domains;
 using NSchema.Plan.Model.Enums;
 using NSchema.Plan.Model.Extensions;
 using NSchema.Plan.Model.Indexes;
+using NSchema.Plan.Model.Migrations;
 using NSchema.Plan.Model.Routines;
 using NSchema.Plan.Model.Schemas;
 using NSchema.Plan.Model.Sequence;
@@ -91,6 +92,10 @@ internal sealed class SqliteSqlGenerator : ISqlGenerator
         // and falls through to the throw below.
         CreateSchema { SchemaName: "main" } or DropSchema { SchemaName: "main" } => [],
 
+        // A data migration's SQL is user-authored for the target dialect and passes through verbatim — no
+        // translation, no quoting. Handled at the statement level so RunOutsideTransaction carries through.
+        ExecuteDataMigration x => [new SqlStatement(x.Sql, x.RunOutsideTransaction)],
+
         _ => [new SqlStatement(GenerateSql(action))],
     };
 
@@ -152,7 +157,8 @@ internal sealed class SqliteSqlGenerator : ISqlGenerator
         CreateExtension or DropExtension or AlterExtension => throw Unsupported("extensions"),
         GrantTablePrivileges or RevokeTablePrivileges => throw Unsupported("grants"),
 
-        _ => throw new ArgumentOutOfRangeException(nameof(action), $"Unhandled action type: {action.GetType().Name}"),
+        _ => throw new ArgumentOutOfRangeException(nameof(action),
+            $"Unhandled action type: {action.GetType().Name}. The plan may come from a newer NSchema.Core than this provider supports — check for a provider update."),
     };
 
     private static string BuildCreateTable(CreateTable x)

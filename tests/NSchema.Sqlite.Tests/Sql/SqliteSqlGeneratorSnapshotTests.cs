@@ -3,6 +3,7 @@ using NSchema.Plan.Model.Columns;
 using NSchema.Plan.Model.Constraints;
 using NSchema.Plan.Model.Enums;
 using NSchema.Plan.Model.Indexes;
+using NSchema.Plan.Model.Migrations;
 using NSchema.Plan.Model.Routines;
 using NSchema.Plan.Model.Schemas;
 using NSchema.Plan.Model.Sequence;
@@ -13,6 +14,7 @@ using NSchema.Schema.Model.Columns;
 using NSchema.Schema.Model.Constraints;
 using NSchema.Schema.Model.Enums;
 using NSchema.Schema.Model.Indexes;
+using NSchema.Schema.Model.Migrations;
 using NSchema.Schema.Model.Routines;
 using NSchema.Schema.Model.Scripts;
 using NSchema.Schema.Model.Sequences;
@@ -209,6 +211,35 @@ public sealed class SqliteSqlGeneratorSnapshotTests
 
         plan.Statements.Single(s => s.Sql.Contains("INSERT")).RunOutsideTransaction.ShouldBeFalse();
         plan.Statements.Single(s => s.Sql.Contains("VACUUM")).RunOutsideTransaction.ShouldBeTrue();
+    }
+
+    // ── Data migrations pass through verbatim ───────────────────────────────────
+
+    [Fact]
+    public Task DataMigration_EmitsUserSqlVerbatimAtItsPlannedPosition() => VerifyPlan(
+        // The migration's SQL is user-authored for Sqlite and must appear exactly as written, between the
+        // statements the linearizer placed it among — no translation, no quoting.
+        new AddColumn(Schema, "users", new Column("status", SqlType.VarChar(20), IsNullable: true)),
+        new ExecuteDataMigration("backfill status", DataMigrationTrigger.AddColumn, Schema, "users", "status",
+            "UPDATE \"users\" SET status = 'active' WHERE status IS NULL"),
+        new CreateIndex(Schema, "users", new TableIndex("idx_users_status", ["status"])));
+
+    [Fact]
+    public void DataMigration_PreservesRunOutsideTransaction()
+    {
+        var inTransaction = new ExecuteDataMigration("backfill", DataMigrationTrigger.AddColumn, Schema, "users", "status",
+            "UPDATE \"users\" SET status = 'active'");
+        var outsideTransaction = new ExecuteDataMigration("rebuild", DataMigrationTrigger.AlterColumnType, Schema, "users", "payload",
+            "VACUUM")
+        { RunOutsideTransaction = true };
+
+        var plan = Generator.Generate(new MigrationPlan([inTransaction, outsideTransaction], [], []));
+
+        plan.Statements.Select(s => (s.Sql, s.RunOutsideTransaction)).ShouldBe(
+        [
+            ("UPDATE \"users\" SET status = 'active'", false),
+            ("VACUUM", true),
+        ]);
     }
 
     // ── Unsupported operations throw a clear NotSupportedException ───────────────
