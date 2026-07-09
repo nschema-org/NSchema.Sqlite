@@ -1,0 +1,17 @@
+﻿{
+  Statements: [
+    {
+      Sql: ALTER TABLE "main"."users" ADD COLUMN "status" varchar(20),
+      RunOutsideTransaction: false
+    },
+    {
+      Sql: UPDATE "users" SET status = 'active' WHERE status IS NULL,
+      RunOutsideTransaction: false
+    },
+    {
+      Sql: CREATE INDEX "main"."idx_users_status" ON "users" ("status"),
+      RunOutsideTransaction: false
+    }
+  ],
+  IsEmpty: false
+}
