@@ -230,7 +230,8 @@ public sealed class SqliteSqlGeneratorSnapshotTests
         var inTransaction = new ExecuteDataMigration("backfill", DataMigrationTrigger.AddColumn, Schema, "users", "status",
             "UPDATE \"users\" SET status = 'active'");
         var outsideTransaction = new ExecuteDataMigration("rebuild", DataMigrationTrigger.AlterColumnType, Schema, "users", "payload",
-            "VACUUM") { RunOutsideTransaction = true };
+            "VACUUM")
+        { RunOutsideTransaction = true };
 
         var plan = Generator.Generate(new MigrationPlan([inTransaction, outsideTransaction], [], []));
 
