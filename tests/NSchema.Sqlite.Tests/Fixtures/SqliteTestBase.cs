@@ -1,14 +1,14 @@
 using Microsoft.Data.Sqlite;
+using NSchema.Model;
 using NSchema.Plan.Model;
-using NSchema.Schema.Model;
 using NSchema.Sqlite.Sql;
 
 namespace NSchema.Sqlite.Tests.Fixtures;
 
 /// <summary>
-/// Base for tests that exercise the generator and provider against a real Sqlite database. Sqlite is in-process,
+/// Base for tests that exercise the dialect and introspector against a real Sqlite database. Sqlite is in-process,
 /// so each test gets its own private temp-file database (no Docker, no container) and the generated DDL is run
-/// against it directly. A temp file — rather than <c>:memory:</c> — is used so the provider, which opens its own
+/// against it directly. A temp file — rather than <c>:memory:</c> — is used so the introspector, which opens its own
 /// connection, sees the same database.
 /// </summary>
 public abstract class SqliteTestBase : IAsyncLifetime
@@ -17,7 +17,7 @@ public abstract class SqliteTestBase : IAsyncLifetime
     private SqliteConnection _connection = null!;
 
     private protected string ConnectionString => $"Data Source={_databasePath}";
-    private protected SqliteSqlGenerator Generator { get; } = new();
+    private protected SqliteSqlDialect Dialect { get; } = new();
 
     public async ValueTask InitializeAsync()
     {
@@ -39,21 +39,25 @@ public abstract class SqliteTestBase : IAsyncLifetime
         }
     }
 
-    /// <summary>Generates SQL for the actions and runs every statement (each on its own connection, as the executor would).</summary>
+    /// <summary>Renders each action through the dialect and runs every statement (each on its own command, as the executor would).</summary>
     private protected async Task Apply(params MigrationAction[] actions)
     {
-        var plan = Generator.Generate(new MigrationPlan(actions, [], []));
-        foreach (var statement in plan.Statements)
+        foreach (var action in actions)
         {
-            await Exec(statement.Sql);
+            var rendered = Dialect.Generate(action);
+            rendered.IsSuccess.ShouldBeTrue(string.Join("; ", rendered.Diagnostics.Select(d => d.Message)));
+            foreach (var statement in rendered.Require())
+            {
+                await Exec(statement.Sql.Value);
+            }
         }
     }
 
     /// <summary>Introspects the live database through the provider, scoped to the <c>main</c> schema.</summary>
-    private protected async Task<DatabaseSchema> Introspect()
+    private protected async Task<Database> Introspect()
     {
-        var provider = new SqliteSchemaProvider(new SqliteConnectionSource(ConnectionString));
-        return await provider.GetSchema(["main"], TestContext.Current.CancellationToken);
+        var introspector = new SqliteDatabaseIntrospector(new SqliteConnectionSource(ConnectionString));
+        return await introspector.GetDatabase(PlanningScope.To([new SqlIdentifier("main")]), TestContext.Current.CancellationToken);
     }
 
     private protected async Task Exec(string sql)

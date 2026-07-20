@@ -1,0 +1,7 @@
+﻿{
+  statements: [
+    DROP VIEW IF EXISTS "main"."active_users",
+    CREATE VIEW "main"."active_users" AS SELECT id, email FROM main.users WHERE active,
+    DROP VIEW "main"."active_users"
+  ]
+}

@@ -1,0 +1,27 @@
+﻿{
+  statements: [    
+CREATE TABLE "main"."types" (
+    "boolean" boolean,
+    "tinyint" tinyint,
+    "smallint" smallint,
+    "int" int,
+    "bigint" bigint,
+    "float" float,
+    "double" double,
+    "decimal" decimal(18,4),
+    "char" char(10),
+    "nchar" nchar(10),
+    "varchar_unbounded" varchar,
+    "varchar" varchar(100),
+    "nvarchar" nvarchar(100),
+    "text" text,
+    "date" date,
+    "time" time,
+    "datetime" datetime,
+    "datetimeoffset" datetimeoffset,
+    "guid" guid,
+    "binary" binary(16),
+    "varbinary" varbinary
+)
+  ]
+}

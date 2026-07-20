@@ -17,11 +17,11 @@ public static class NSchemaApplicationBuilderExtensions
         /// </summary>
         /// <param name="connectionString">The connection string to the Sqlite database, e.g. <c>Data Source=app.db</c>.</param>
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
-        public NSchemaApplicationBuilder UseSqliteSchema(string connectionString)
+        public NSchemaApplicationBuilder UseSqlite(string connectionString)
         {
             builder.Services.AddSingleton(_ => new SqliteConnectionSource(connectionString));
             builder.Services.AddSingleton<DbDataSource>(p => p.GetRequiredService<SqliteConnectionSource>());
-            return builder.UseSqliteSchema();
+            return builder.UseSqlite();
         }
 
         /// <summary>
@@ -30,27 +30,27 @@ public static class NSchemaApplicationBuilderExtensions
         /// </summary>
         /// <param name="configure">A delegate that configures the <see cref="SqliteConnectionStringBuilder"/>.</param>
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
-        public NSchemaApplicationBuilder UseSqliteSchema(Action<SqliteConnectionStringBuilder> configure)
+        public NSchemaApplicationBuilder UseSqlite(Action<SqliteConnectionStringBuilder> configure)
         {
             var connectionStringBuilder = new SqliteConnectionStringBuilder();
             configure(connectionStringBuilder);
-            return builder.UseSqliteSchema(connectionStringBuilder.ConnectionString);
+            return builder.UseSqlite(connectionStringBuilder.ConnectionString);
         }
 
         /// <summary>
-        /// Configures NSchema to use Sqlite as the database provider by registering the schema provider and SQL
-        /// generator. A <see cref="SqliteConnectionSource"/> (and the <see cref="DbDataSource"/> the executor needs)
+        /// Configures NSchema to use Sqlite as the database provider by registering the database introspector and
+        /// SQL dialect. A <see cref="SqliteConnectionSource"/> (and the <see cref="DbDataSource"/> the executor needs)
         /// must already be registered (use one of the overloads that accept a connection string to register them).
         /// </summary>
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
-        public NSchemaApplicationBuilder UseSqliteSchema() => builder
-            .UseCurrentSchema<SqliteSchemaProvider>()
-            .UseSqliteGenerator();
+        public NSchemaApplicationBuilder UseSqlite() => builder
+            .UseDatabaseIntrospector<SqliteDatabaseIntrospector>()
+            .UseSqliteDialect();
 
         /// <summary>
-        /// Configures the NSchema application to generate SQL for Sqlite.
+        /// Configures the NSchema application to render SQL for Sqlite.
         /// </summary>
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
-        public NSchemaApplicationBuilder UseSqliteGenerator() => builder.UseSqlGenerator<SqliteSqlGenerator>();
+        public NSchemaApplicationBuilder UseSqliteDialect() => builder.UseSqlDialect<SqliteSqlDialect>();
     }
 }

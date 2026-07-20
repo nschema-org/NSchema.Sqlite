@@ -1,4 +1,3 @@
-using NSchema.Configuration;
 using NSchema.Plugins;
 
 namespace NSchema.Sqlite;
@@ -6,28 +5,20 @@ namespace NSchema.Sqlite;
 /// <summary>
 /// The NSchema plugin manifest for the SQLite provider.
 /// </summary>
-public sealed class SqlitePlugin : INSchemaProviderPlugin
+public sealed class SqlitePlugin : INSchemaDatabasePlugin
 {
+    private const string DiagnosticSource = "sqlite";
     private const string EnvConnectionString = "NSCHEMA_SQLITE_CONNECTION_STRING";
 
     /// <inheritdoc />
-    public string Label => "sqlite";
-
-    /// <inheritdoc />
-    public string GetScaffoldTemplate(ScaffoldContext context)
-    {
-        var lines = new List<string> { "PROVIDER sqlite (" };
-        if (context.Version is { } version)
-        {
-            lines.Add($"  version           = '{version}',");
-        }
-
-        lines.Add($"  -- A local SQLite database file. The {EnvConnectionString} environment");
-        lines.Add("  -- variable overrides the value below.");
-        lines.Add("  connection_string = 'Data Source=app.db'");
-        lines.Add(");");
-        return string.Join("\n", lines);
-    }
+    public string GetScaffoldTemplate(ScaffoldContext context) =>
+        $"""
+        DATABASE sqlite (
+          -- A local SQLite database file. The {EnvConnectionString} environment
+          -- variable overrides the value below.
+          connection_string = 'Data Source=app.db'
+        );
+        """;
 
     /// <inheritdoc />
     public string GetSampleSchema() =>
@@ -42,37 +33,32 @@ public sealed class SqlitePlugin : INSchemaProviderPlugin
         """;
 
     /// <inheritdoc />
-    public PluginConfigureResult Configure(NSchemaApplicationBuilder builder, ConfigBlock block)
+    public Result Configure(NSchemaApplicationBuilder builder, PluginConfig config)
     {
-        var errors = new List<string>();
-        var connectionString = "";
+        var bound = config.Bind<SqliteSettings>();
+        var diagnostics = bound.Diagnostics.ToList();
 
-        foreach (var (key, value) in block.Attributes)
-        {
-            switch (key.ToLowerInvariant())
-            {
-                case "connection_string":
-                    connectionString = value.AsString();
-                    break;
-                default:
-                    errors.Add($"PROVIDER sqlite: unknown attribute '{key}'.");
-                    break;
-            }
-        }
-
-        connectionString = Environment.GetEnvironmentVariable(EnvConnectionString) ?? connectionString;
-
+        var connectionString = Environment.GetEnvironmentVariable(EnvConnectionString) ?? bound.Value?.ConnectionString;
         if (string.IsNullOrEmpty(connectionString))
         {
-            errors.Add($"PROVIDER sqlite: connection_string is required. Set it via the {EnvConnectionString} environment variable or the block attribute.");
+            diagnostics.Add(Diagnostic.Error(DiagnosticSource,
+                $"DATABASE sqlite: connection_string is required. Set it via the {EnvConnectionString} environment variable or the statement attribute."));
         }
 
-        if (errors.Count > 0)
+        if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
         {
-            return PluginConfigureResult.Failure([.. errors]);
+            return Result.From(diagnostics);
         }
 
-        builder.UseSqliteSchema(connectionString);
-        return PluginConfigureResult.Success;
+        builder.UseSqlite(connectionString!);
+        return Result.From(diagnostics);
+    }
+
+    /// <summary>
+    /// The settings the <c>DATABASE</c> statement binds onto.
+    /// </summary>
+    private sealed record SqliteSettings
+    {
+        public string? ConnectionString { get; init; }
     }
 }

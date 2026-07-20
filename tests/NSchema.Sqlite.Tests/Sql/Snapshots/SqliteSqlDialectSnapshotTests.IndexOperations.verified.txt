@@ -1,0 +1,8 @@
+﻿{
+  statements: [
+    CREATE UNIQUE INDEX "main"."idx_users_email" ON "users" ("email"),
+    CREATE INDEX "main"."idx_users_active" ON "users" ("created_at") WHERE notes IS NOT NULL,
+    CREATE INDEX "main"."idx_users_recent" ON "users" ("created_at" DESC, (lower(email))),
+    DROP INDEX "main"."idx_users_email"
+  ]
+}

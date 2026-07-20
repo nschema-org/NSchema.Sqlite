@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace NSchema.Sqlite.Tests;
 
 /// <summary>
-/// Covers the service registrations <see cref="NSchemaApplicationBuilderExtensions.UseSqliteSchema(NSchemaApplicationBuilder, string)"/>
+/// Covers the service registrations <see cref="NSchemaApplicationBuilderExtensions.UseSqlite(NSchemaApplicationBuilder, string)"/>
 /// makes. The generator/provider tests drive the SQL and introspection directly, so they never go through DI; these
 /// tests guard the wiring the host (the CLI) relies on — in particular the <see cref="DbDataSource"/> the core's SQL
 /// executor needs to apply a plan, whose absence made <c>apply</c> fail with "no database connection is configured".
@@ -31,11 +31,11 @@ public sealed class NSchemaApplicationBuilderExtensionsTests : IDisposable
     }
 
     [Fact]
-    public async Task UseSqliteSchema_RegistersADbDataSource_TheExecutorCanOpenConnectionsFrom()
+    public async Task UseSqlite_RegistersADbDataSource_TheExecutorCanOpenConnectionsFrom()
     {
         // Arrange — wire the provider exactly as a host does.
         var builder = NSchemaApplication.CreateBuilder();
-        builder.UseSqliteSchema(ConnectionString);
+        builder.UseSqlite(ConnectionString);
         await using var services = builder.Services.BuildServiceProvider();
 
         // Act — the core SqlExecutor resolves a DbDataSource to apply a plan; without one, apply throws.
@@ -49,11 +49,11 @@ public sealed class NSchemaApplicationBuilderExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void UseSqliteSchema_ExposesOneConnectionSourceUnderBothFacets()
+    public void UseSqlite_ExposesOneConnectionSourceUnderBothFacets()
     {
         // Arrange
         var builder = NSchemaApplication.CreateBuilder();
-        builder.UseSqliteSchema(ConnectionString);
+        builder.UseSqlite(ConnectionString);
         using var services = builder.Services.BuildServiceProvider();
 
         // Act — the schema provider reads through SqliteConnectionSource; the executor writes through DbDataSource.

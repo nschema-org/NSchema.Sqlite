@@ -1,22 +1,23 @@
-using NSchema.Schema.Model.Columns;
-using NSchema.Schema.Model.Tables;
+using NSchema.Model;
+using NSchema.Model.Columns;
+using NSchema.Model.Tables;
 using NSchema.Sqlite.Tests.Fixtures;
 
 namespace NSchema.Sqlite.Tests.Sql;
 
 /// <summary>
-/// Introspection-focused tests for <see cref="NSchema.Sqlite.Sql.SqliteSchemaProvider"/>, including reading
-/// databases created by hand (not by the generator) to prove the <c>sqlite_master</c> SQL parsing recovers the
+/// Introspection-focused tests for <see cref="NSchema.Sqlite.Sql.SqliteDatabaseIntrospector"/>, including reading
+/// databases created by hand (not by the dialect) to prove the <c>sqlite_master</c> SQL parsing recovers the
 /// constraint names and expressions that Sqlite's PRAGMAs hide.
 /// </summary>
-public sealed class SqliteSchemaProviderTests : SqliteTestBase
+public sealed class SqliteDatabaseIntrospectorTests : SqliteTestBase
 {
     [Fact]
     public async Task EmptyDatabase_ReportsTheMainSchemaWithNothingInIt()
     {
         // 'main' is always returned so the schema itself is never planned as a create.
         var schema = (await Introspect()).Schemas.ShouldHaveSingleItem();
-        schema.Name.ShouldBe("main");
+        schema.Name.Value.ShouldBe("main");
         schema.Tables.ShouldBeEmpty();
         schema.Views.ShouldBeEmpty();
     }
@@ -42,14 +43,14 @@ public sealed class SqliteSchemaProviderTests : SqliteTestBase
             )
             """);
 
-        var children = (await Introspect()).Schemas[0].Tables.Single(t => t.Name == "children");
+        var children = (await Introspect()).Schemas[0].Tables.Single(t => t.Name.Value == "children");
 
-        children.PrimaryKey!.Name.ShouldBe("pk_children");
-        children.UniqueConstraints.ShouldHaveSingleItem().Name.ShouldBe("uq_children_code");
-        children.CheckConstraints.ShouldHaveSingleItem().Name.ShouldBe("ck_children_code");
+        children.PrimaryKey!.Name.Value.ShouldBe("pk_children");
+        children.UniqueConstraints.ShouldHaveSingleItem().Name.Value.ShouldBe("uq_children_code");
+        children.CheckConstraints.ShouldHaveSingleItem().Name.Value.ShouldBe("ck_children_code");
         var fk = children.ForeignKeys.ShouldHaveSingleItem();
-        fk.Name.ShouldBe("fk_children_parent");
-        fk.ReferencedTable.ShouldBe("parents");
+        fk.Name.Value.ShouldBe("fk_children_parent");
+        fk.References.ShouldBe(new ObjectAddress(new SqlIdentifier("main"), new SqlIdentifier("parents")));
         fk.OnDelete.ShouldBe(ReferentialAction.Cascade);
     }
 
@@ -60,10 +61,10 @@ public sealed class SqliteSchemaProviderTests : SqliteTestBase
         // the provider synthesizes a deterministic one rather than dropping the key.
         await Exec("CREATE TABLE \"widgets\" (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT)");
 
-        var widgets = (await Introspect()).Schemas[0].Tables.Single(t => t.Name == "widgets");
+        var widgets = (await Introspect()).Schemas[0].Tables.Single(t => t.Name.Value == "widgets");
         widgets.PrimaryKey.ShouldNotBeNull();
-        widgets.PrimaryKey!.Name.ShouldBe("pk_widgets");
-        widgets.PrimaryKey.ColumnNames.ShouldBe(["id"]);
+        widgets.PrimaryKey!.Name.Value.ShouldBe("pk_widgets");
+        widgets.PrimaryKey.ColumnNames.ShouldBe([new SqlIdentifier("id")]);
     }
 
     [Fact]
@@ -80,13 +81,13 @@ public sealed class SqliteSchemaProviderTests : SqliteTestBase
             """);
 
         var columns = (await Introspect()).Schemas[0].Tables.Single().Columns;
-        columns.Single(c => c.Name == "a").Type.ShouldBe(SqlType.BigInt);
-        columns.Single(c => c.Name == "b").Type.ShouldBe(SqlType.VarChar(50));
-        columns.Single(c => c.Name == "c").Type.ShouldBe(SqlType.Decimal(12, 3));
-        columns.Single(c => c.Name == "d").Type.ShouldBe(SqlType.Text);
-        columns.Single(c => c.Name == "e").Type.ShouldBe(SqlType.Boolean);
-        columns.Single(c => c.Name == "a").IsNullable.ShouldBeFalse();
-        columns.Single(c => c.Name == "b").IsNullable.ShouldBeTrue();
+        columns.Single(c => c.Name.Value == "a").Type.ShouldBe(SqlType.BigInt);
+        columns.Single(c => c.Name.Value == "b").Type.ShouldBe(SqlType.VarChar(50));
+        columns.Single(c => c.Name.Value == "c").Type.ShouldBe(SqlType.Decimal(12, 3));
+        columns.Single(c => c.Name.Value == "d").Type.ShouldBe(SqlType.Text);
+        columns.Single(c => c.Name.Value == "e").Type.ShouldBe(SqlType.Boolean);
+        columns.Single(c => c.Name.Value == "a").IsNullable.ShouldBeFalse();
+        columns.Single(c => c.Name.Value == "b").IsNullable.ShouldBeTrue();
     }
 
     [Fact]
@@ -104,7 +105,7 @@ public sealed class SqliteSchemaProviderTests : SqliteTestBase
         await Exec("CREATE INDEX \"idx_t_id\" ON \"t\" (\"id\")");
 
         var table = (await Introspect()).Schemas[0].Tables.Single();
-        table.UniqueConstraints.ShouldHaveSingleItem().Name.ShouldBe("uq_t_code");
-        table.Indexes.ShouldHaveSingleItem().Name.ShouldBe("idx_t_id");
+        table.UniqueConstraints.ShouldHaveSingleItem().Name.Value.ShouldBe("uq_t_code");
+        table.Indexes.ShouldHaveSingleItem().Name.Value.ShouldBe("idx_t_id");
     }
 }

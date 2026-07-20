@@ -10,6 +10,19 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [Unreleased]
+
+Tracks the `NSchema.Core` 5.0.0 rearchitecture (lockstep major versioning). See the core changelog for the engine-wide changes; the provider-facing ones are below.
+
+### Changed
+
+- **`UseSqlite(...)` replaces `UseSqliteSchema(...)`,** and `UseSqliteDialect()` replaces `UseSqliteGenerator()`.
+- **Introspection implements `IDatabaseIntrospector`** (the core seam replacing `ISchemaProvider`) and returns the new `NSchema.Model` schema model.
+- **SQL generation is a `SqlDialect`** (the core seam replacing `ISqlGenerator`), registered via `UseSqliteDialect()`.
+- **Unsupported operations are error diagnostics now.** Actions SQLite cannot express (in-place column changes, constraint changes on an existing table, sequences, enums, routines, grants, materialized views, …) surface as errors on the plan result instead of throwing `NotSupportedException`, so you always get the complete plan.
+- **Comment changes are skipped with a warning.** SQLite has no `COMMENT ON`; a declared comment previously emitted no SQL silently, and now carries a warning diagnostic explaining why it never converges.
+- **The plugin is configured by a `DATABASE` statement** (replacing the `PROVIDER` block), and its scaffold template no longer pins a version — the host owns the `PLUGIN` declaration.
+
 ## [4.3.0] - 2026-07-09
 
 ### Added

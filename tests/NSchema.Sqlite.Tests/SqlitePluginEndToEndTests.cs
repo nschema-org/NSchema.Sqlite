@@ -1,14 +1,12 @@
-using NSchema.Configuration;
-using NSchema.Operations.Apply;
-using NSchema.Operations.Plan;
-using NSchema.Sql.Model;
+using NSchema.Operations;
+using NSchema.Plugins;
 using NSchema.Sqlite.Tests.Fixtures;
 
 namespace NSchema.Sqlite.Tests;
 
 /// <summary>
 /// End-to-end proof that the <see cref="SqlitePlugin"/> manifest wires a fully working provider: it runs a real
-/// migration THROUGH the plugin's <c>Configure</c> (not the direct <c>UseSqliteSchema</c> API) against a real (temp
+/// migration THROUGH the plugin's <c>Configure</c> (not the direct <c>UseSqlite</c> API) against a real (temp
 /// file) SQLite database, then re-introspects to confirm the schema was applied. In-process — no Docker.
 /// </summary>
 [Collection("sqlite-environment")]
@@ -31,32 +29,54 @@ public sealed class SqlitePluginEndToEndTests : SqliteTestBase
         Environment.SetEnvironmentVariable(EnvConnectionString, ConnectionString);
         try
         {
+            // The second table carries a foreign key and a unique constraint: the linearizer emits those as
+            // separate Add* actions after the CREATE TABLE, and the dialect must fold them into the inline form.
             await File.WriteAllTextAsync(Path.Combine(projectDirectory, "schema.sql"), """
                 CREATE TABLE main.widgets (
                   id   bigint NOT NULL,
                   name text,
                   CONSTRAINT widgets_pkey PRIMARY KEY (id)
                 );
+
+                CREATE TABLE main.orders (
+                  id        bigint NOT NULL,
+                  widget_id bigint NOT NULL,
+                  code      varchar(20) NOT NULL,
+                  CONSTRAINT orders_pkey PRIMARY KEY (id),
+                  CONSTRAINT orders_code_uq UNIQUE (code),
+                  CONSTRAINT orders_widget_fk FOREIGN KEY (widget_id) REFERENCES main.widgets (id)
+                );
                 """, TestContext.Current.CancellationToken);
 
             var builder = NSchemaApplication.CreateBuilder();
-            var configured = new SqlitePlugin().Configure(builder, new ConfigBlock("provider", "sqlite", new Dictionary<string, ConfigValue>
-            {
-                ["connection_string"] = ConfigValue.OfString(ConnectionString),
-            }));
-            configured.Succeeded.ShouldBeTrue();
+            var configured = new SqlitePlugin().Configure(builder, new PluginConfig(new PluginLabel("sqlite"),
+                new Dictionary<AttributeKey, ConfigValue>
+                {
+                    [new AttributeKey("connection_string")] = ConfigValue.OfString(ConnectionString),
+                }));
+            configured.IsSuccess.ShouldBeTrue();
 
-            builder.AddDdlSchemas(projectDirectory);
+            builder.AddProjectSource(projectDirectory);
+            builder.UseEphemeralState();
             using var app = builder.Build();
 
-            // Act — a real plan + apply through the plugin-wired provider.
-            var planResult = await app.Operations.Plan(new PlanArguments { Schemas = ["main"], Target = PlanTarget.Live }, TestContext.Current.CancellationToken);
-            planResult.IsSuccess.ShouldBeTrue();
-            await app.Operations.Apply(new ApplyArguments { Sql = planResult.Value!.Sql ?? new SqlPlan([]) }, TestContext.Current.CancellationToken);
+            // Act — the CLI-style flow through the plugin-wired provider: refresh so state reflects the live
+            // database, plan, then apply.
+            var refreshed = await app.Operations.Refresh(new RefreshArguments(), TestContext.Current.CancellationToken);
+            refreshed.IsSuccess.ShouldBeTrue();
+            var planResult = await app.Operations.Plan(new PlanArguments(), TestContext.Current.CancellationToken);
+            planResult.IsSuccess.ShouldBeTrue(string.Join("; ", planResult.Diagnostics.Select(d => d.Message)));
+            var applyResult = await app.Operations.Apply(new ApplyArguments { Plan = planResult.Value!.Plan! }, TestContext.Current.CancellationToken);
+            applyResult.IsSuccess.ShouldBeTrue(string.Join("; ", applyResult.Diagnostics.Select(d => d.Message)));
 
-            // Assert — the table really exists, read back via a fresh introspection.
+            // Assert — both tables really exist, read back via a fresh introspection, with the folded
+            // constraints carrying the author's names.
             var live = await Introspect();
-            live.Schemas.ShouldHaveSingleItem().Tables.ShouldHaveSingleItem().Name.ShouldBe("widgets");
+            var tables = live.Schemas.ShouldHaveSingleItem().Tables;
+            tables.Select(t => t.Name.Value).ShouldBe(["orders", "widgets"]);
+            var orders = tables.Single(t => t.Name.Value == "orders");
+            orders.ForeignKeys.ShouldHaveSingleItem().Name.Value.ShouldBe("orders_widget_fk");
+            orders.UniqueConstraints.ShouldHaveSingleItem().Name.Value.ShouldBe("orders_code_uq");
         }
         finally
         {

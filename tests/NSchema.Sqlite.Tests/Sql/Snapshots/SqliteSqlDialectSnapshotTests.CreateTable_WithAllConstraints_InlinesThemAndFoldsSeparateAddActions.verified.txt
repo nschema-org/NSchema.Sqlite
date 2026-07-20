@@ -1,7 +1,5 @@
 ﻿{
-  Statements: [
-    {
-      Sql:
+  statements: [    
 CREATE TABLE "main"."orders" (
     "id" bigint NOT NULL,
     "user_id" bigint NOT NULL,
@@ -11,9 +9,6 @@ CREATE TABLE "main"."orders" (
     CONSTRAINT "uq_orders_code" UNIQUE ("code"),
     CONSTRAINT "ck_orders_total" CHECK (total >= 0),
     CONSTRAINT "fk_orders_user" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
-),
-      RunOutsideTransaction: false
-    }
-  ],
-  IsEmpty: false
+)
+  ]
 }

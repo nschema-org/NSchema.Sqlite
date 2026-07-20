@@ -1,0 +1,8 @@
+﻿{
+  statements: [
+    ALTER TABLE "main"."users" ADD COLUMN "age" int,
+    ALTER TABLE "main"."users" ADD COLUMN "status" varchar(20) NOT NULL DEFAULT 'active',
+    ALTER TABLE "main"."users" RENAME COLUMN "age" TO "years",
+    ALTER TABLE "main"."users" DROP COLUMN "years"
+  ]
+}

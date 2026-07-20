@@ -1,0 +1,6 @@
+﻿{
+  statements: [
+    ALTER TABLE "main"."old_users" RENAME TO "users",
+    DROP TABLE "main"."legacy"
+  ]
+}

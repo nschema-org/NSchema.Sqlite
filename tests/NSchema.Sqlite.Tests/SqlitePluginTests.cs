@@ -1,11 +1,10 @@
-using NSchema.Configuration;
+using NSchema.Plan.Backends;
 using NSchema.Plugins;
-using NSchema.Sql;
 
 namespace NSchema.Sqlite.Tests;
 
 /// <summary>
-/// Pins <see cref="SqlitePlugin"/>'s block parsing, environment-override precedence, and validation. Pure
+/// Pins <see cref="SqlitePlugin"/>'s configuration binding, environment-override precedence, and validation. Pure
 /// unit tests — no Docker. The <c>NSCHEMA_SQLITE_CONNECTION_STRING</c> variable is snapshotted and cleared so
 /// a developer's ambient environment cannot make the outcome non-deterministic.
 /// </summary>
@@ -22,15 +21,8 @@ public sealed class SqlitePluginTests : IDisposable
     public void Dispose() => Environment.SetEnvironmentVariable(EnvConnectionString, _savedEnv);
 
     [Fact]
-    public void Label_IsSqlite() => _sut.Label.ShouldBe("sqlite");
-
-    [Fact]
-    public void GetScaffoldTemplate_ReturnsProviderBlock()
-        => _sut.GetScaffoldTemplate(new ScaffoldContext()).ShouldContain("PROVIDER sqlite");
-
-    [Fact]
-    public void GetScaffoldTemplate_WithVersion_PinsIt()
-        => _sut.GetScaffoldTemplate(new ScaffoldContext { Version = "9.9.9" }).ShouldContain("version           = '9.9.9',");
+    public void GetScaffoldTemplate_ReturnsDatabaseStatement()
+        => _sut.GetScaffoldTemplate(new ScaffoldContext()).ShouldContain("DATABASE sqlite");
 
     [Fact]
     public void GetSampleSchema_UsesTheMainSchema()
@@ -46,15 +38,15 @@ public sealed class SqlitePluginTests : IDisposable
     {
         // Arrange
         var builder = NSchemaApplication.CreateBuilder();
-        var block = Block(("connection_string", ConfigValue.OfString("Data Source=app.db")));
+        var config = Config(("connection_string", ConfigValue.OfString("Data Source=app.db")));
 
         // Act
-        var result = _sut.Configure(builder, block);
+        var result = _sut.Configure(builder, config);
 
         // Assert
-        result.Succeeded.ShouldBeTrue();
+        result.IsSuccess.ShouldBeTrue();
         result.Errors.ShouldBeEmpty();
-        builder.Services.ShouldContain(d => d.ServiceType == typeof(ISqlGenerator));
+        builder.Services.ShouldContain(d => d.ServiceType == typeof(SqlDialect));
     }
 
     [Fact]
@@ -62,14 +54,14 @@ public sealed class SqlitePluginTests : IDisposable
     {
         // Arrange
         var builder = NSchemaApplication.CreateBuilder();
-        var block = Block();
+        var config = Config();
 
         // Act
-        var result = _sut.Configure(builder, block);
+        var result = _sut.Configure(builder, config);
 
         // Assert
-        result.Succeeded.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.Contains("connection_string is required"));
+        result.IsFailure.ShouldBeTrue();
+        result.Errors.ShouldContain(e => e.Message.Contains("connection_string is required"));
     }
 
     [Fact]
@@ -77,34 +69,34 @@ public sealed class SqlitePluginTests : IDisposable
     {
         // Arrange
         var builder = NSchemaApplication.CreateBuilder();
-        var block = Block(
+        var config = Config(
             ("connection_string", ConfigValue.OfString("Data Source=app.db")),
             ("nonsense", ConfigValue.OfString("x")));
 
         // Act
-        var result = _sut.Configure(builder, block);
+        var result = _sut.Configure(builder, config);
 
         // Assert
-        result.Succeeded.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.Contains("unknown attribute 'nonsense'"));
+        result.IsFailure.ShouldBeTrue();
+        result.Errors.ShouldContain(e => e.Message.Contains("nonsense"));
     }
 
     [Fact]
-    public void Configure_EnvironmentConnectionString_SatisfiesOmittedBlockAttribute()
+    public void Configure_EnvironmentConnectionString_SatisfiesOmittedAttribute()
     {
         // Arrange
         Environment.SetEnvironmentVariable(EnvConnectionString, "Data Source=env.db");
         var builder = NSchemaApplication.CreateBuilder();
-        var block = Block();
+        var config = Config();
 
         // Act
-        var result = _sut.Configure(builder, block);
+        var result = _sut.Configure(builder, config);
 
         // Assert
-        result.Succeeded.ShouldBeTrue();
+        result.IsSuccess.ShouldBeTrue();
         result.Errors.ShouldBeEmpty();
     }
 
-    private static ConfigBlock Block(params (string Key, ConfigValue Value)[] attributes)
-        => new("provider", "sqlite", attributes.ToDictionary(a => a.Key, a => a.Value));
+    private static PluginConfig Config(params (string Key, ConfigValue Value)[] attributes)
+        => new(new PluginLabel("sqlite"), attributes.ToDictionary(a => new AttributeKey(a.Key), a => a.Value));
 }

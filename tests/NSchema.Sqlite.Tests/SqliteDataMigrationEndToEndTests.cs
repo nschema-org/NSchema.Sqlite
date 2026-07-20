@@ -1,29 +1,27 @@
-using NSchema.Operations.Apply;
-using NSchema.Operations.Plan;
-using NSchema.Sql.Model;
+using NSchema.Operations;
 using NSchema.Sqlite.Tests.Fixtures;
 
 namespace NSchema.Sqlite.Tests;
 
 /// <summary>
-/// Drives a declared <c>MIGRATION … FOR</c> data migration through the whole pipeline against a real SQLite
-/// database: DDL on disk → plan (the migration matches its structural change and is spliced into the plan) →
+/// Drives a declared <c>SCRIPT … RUN ON</c> change script through the whole pipeline against a real SQLite
+/// database: DDL on disk → refresh → plan (the script matches its structural change and is woven into the plan) →
 /// apply → the backfill has really run.
 /// </summary>
 /// <remarks>
-/// The canonical data-migration shape — a NOT NULL, no-default column add — is not exercisable here: the core
+/// The canonical change-script shape — a NOT NULL, no-default column add — is not exercisable here: the core
 /// decomposes it into add-nullable → backfill → tighten to NOT NULL, and that final <c>AlterColumnNullability</c>
 /// needs a table rebuild, which NSchema.Sqlite does not support. A nullable column add with a matched backfill
-/// runs the same match-and-splice path end to end without the rebuild.
+/// runs the same match-and-weave path end to end without the rebuild.
 /// </remarks>
 [Collection("sqlite-environment")]
 public sealed class SqliteDataMigrationEndToEndTests : SqliteTestBase
 {
     [Fact]
-    public async Task Apply_WithAddColumnDataMigration_RunsTheBackfillAtItsPlannedPosition()
+    public async Task Apply_WithAddColumnChangeScript_RunsTheBackfillAtItsPlannedPosition()
     {
-        // Arrange — a live baseline with data, and a desired schema adding a column plus its backfill migration.
-        // Everything lives under SQLite's single built-in schema, so the migration's target path uses `main`.
+        // Arrange — a live baseline with data, and a desired schema adding a column plus its backfill script.
+        // Everything lives under SQLite's single built-in schema, so the script's target path uses `main`.
         await Exec("""
             CREATE TABLE "main"."users" (
                 "id" bigint NOT NULL,
@@ -42,23 +40,26 @@ public sealed class SqliteDataMigrationEndToEndTests : SqliteTestBase
                   CONSTRAINT pk_users PRIMARY KEY (id)
                 );
 
-                MIGRATION 'backfill status' FOR ADD COLUMN main.users.status AS $$
+                SCRIPT backfill_status RUN ON ADD COLUMN main.users.status AS $$
                 UPDATE "users" SET "status" = 'active' WHERE "status" IS NULL
                 $$;
                 """, TestContext.Current.CancellationToken);
 
             var builder = NSchemaApplication.CreateBuilder();
-            builder.UseSqliteSchema(ConnectionString);
-            builder.AddDdlSchemas(projectDirectory);
+            builder.UseSqlite(ConnectionString);
+            builder.AddProjectSource(projectDirectory);
+            builder.UseEphemeralState();
             using var app = builder.Build();
 
-            // Act — plan against the live database and apply what it produced.
-            var planResult = await app.Operations.Plan(new PlanArguments { Schemas = ["main"], Target = PlanTarget.Live }, TestContext.Current.CancellationToken);
-            planResult.IsSuccess.ShouldBeTrue();
-            var applyResult = await app.Operations.Apply(new ApplyArguments { Sql = planResult.Value!.Sql ?? new SqlPlan([]) }, TestContext.Current.CancellationToken);
-            applyResult.IsSuccess.ShouldBeTrue();
+            // Act — refresh so the recorded state reflects the live baseline, plan, and apply what it produced.
+            var refreshed = await app.Operations.Refresh(new RefreshArguments(), TestContext.Current.CancellationToken);
+            refreshed.IsSuccess.ShouldBeTrue();
+            var planResult = await app.Operations.Plan(new PlanArguments(), TestContext.Current.CancellationToken);
+            planResult.IsSuccess.ShouldBeTrue(string.Join("; ", planResult.Diagnostics.Select(d => d.Message)));
+            var applyResult = await app.Operations.Apply(new ApplyArguments { Plan = planResult.Value!.Plan! }, TestContext.Current.CancellationToken);
+            applyResult.IsSuccess.ShouldBeTrue(string.Join("; ", applyResult.Diagnostics.Select(d => d.Message)));
 
-            // Assert — the column landed and the migration's SQL really ran against the existing row.
+            // Assert — the column landed and the script's SQL really ran against the existing row.
             (await Scalar<string>("SELECT \"status\" FROM \"users\" WHERE \"id\" = 1")).ShouldBe("active");
         }
         finally
