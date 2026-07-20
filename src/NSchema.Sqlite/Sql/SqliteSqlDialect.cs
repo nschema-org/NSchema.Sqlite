@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using NSchema.Model;
 using NSchema.Model.Columns;
 using NSchema.Model.Indexes;
@@ -24,9 +23,8 @@ namespace NSchema.Sqlite.Sql;
 /// Sqlite's surface is small, so a great deal is rejected rather than half-supported:
 /// <list type="bullet">
 /// <item>Foreign keys, unique constraints and check constraints cannot be added to a table after the fact
-/// (<c>ALTER TABLE</c> only does ADD/DROP/RENAME COLUMN and RENAME TABLE). They are therefore inlined into
-/// <c>CREATE TABLE</c> for a table created in the same plan, and the separate <c>Add*</c> actions the linearizer
-/// emits for that table render as nothing. The same action against an <em>existing</em> table is an error.</item>
+/// (<c>ALTER TABLE</c> only does ADD/DROP/RENAME COLUMN and RENAME TABLE). A new table carries them inline in
+/// its <c>CREATE TABLE</c>; adding one to an <em>existing</em> table is an error.</item>
 /// <item>In-place column changes (type, nullability, default, generated expression) and constraint add/drops on an
 /// existing table would each require a full table rebuild, which is not implemented; they are errors.</item>
 /// <item>Features Sqlite has no equivalent for (schemas other than <c>main</c>, sequences, enums, domains, composite
@@ -41,11 +39,9 @@ internal sealed class SqliteSqlDialect : SqlDialect
     /// <inheritdoc />
     protected override string Name => "Sqlite";
 
-    // The rendering seam is one action at a time, so the fold above needs a memory of which Table instances this
-    // dialect has rendered a CREATE TABLE for: an Add* constraint action carries the desired-tree member, whose
-    // Parent is the very Table instance the same plan's CreateTable carries. Weakly held, so finished plans
-    // don't pin their project trees.
-    private readonly ConditionalWeakTable<Table, object> _created = [];
+    // A Sqlite foreign key references a table in the same database, so the referenced name is emitted unqualified
+    // (a schema-qualified REFERENCES target is a syntax error).
+    protected override string ForeignKeyTarget(ForeignKey key) => Quote(key.References.Name);
 
     // ── Schemas (exactly one, the implicit 'main': it can be neither created nor dropped) ──
 
@@ -70,7 +66,6 @@ internal sealed class SqliteSqlDialect : SqlDialect
     protected override Result<IReadOnlyList<SqlStatement>> CreateTable(CreateTable action)
     {
         var table = action.Table;
-        _created.AddOrUpdate(table, table);
 
         if (table.ExclusionConstraints.Count > 0)
         {
@@ -82,30 +77,12 @@ internal sealed class SqliteSqlDialect : SqlDialect
             return IdentityColumn(identity);
         }
 
-        var parts = table.Columns.Select(ColumnDef).ToList();
-
         // Unlike a server database, Sqlite cannot ALTER TABLE ADD CONSTRAINT, so every table constraint is created
-        // inline here — the primary key, then unique and check constraints, then foreign keys. Only indexes arrive
-        // as separate actions (Sqlite does support CREATE INDEX).
-        if (table.PrimaryKey is { } pk)
-        {
-            parts.Add($"CONSTRAINT {Quote(pk.Name)} PRIMARY KEY ({ColumnList(pk.ColumnNames)})");
-        }
-
-        foreach (var unique in table.UniqueConstraints)
-        {
-            parts.Add($"CONSTRAINT {Quote(unique.Name)} UNIQUE ({ColumnList(unique.ColumnNames)})");
-        }
-
-        foreach (var check in table.CheckConstraints)
-        {
-            parts.Add($"CONSTRAINT {Quote(check.Name)} CHECK ({check.Expression})");
-        }
-
-        foreach (var foreignKey in table.ForeignKeys)
-        {
-            parts.Add(InlineForeignKey(foreignKey));
-        }
+        // inline here; the linearizer folds a new table's constraint adds into CREATE TABLE, and only indexes
+        // arrive as separate actions (Sqlite does support CREATE INDEX).
+        var parts = table.Columns.Select(ColumnDef)
+            .Concat(InlineConstraintClauses(table))
+            .ToList();
 
         return Statement($"""
             CREATE TABLE {Qualify(action.SchemaName, table.Name)} (
@@ -124,9 +101,13 @@ internal sealed class SqliteSqlDialect : SqlDialect
     protected override Result<IReadOnlyList<SqlStatement>> DropPrimaryKey(DropPrimaryKey action) =>
         RequiresRebuild("drop a primary key");
 
+    // A new table inlines its foreign keys, unique and check constraints (see CreateTable), so the linearizer
+    // never emits an Add* for one. These overrides therefore only ever see an existing table, which Sqlite cannot
+    // ALTER to add a constraint.
+
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> AddForeignKey(AddForeignKey action) =>
-        FoldedOrRebuild(action.ForeignKey, "add a foreign key to an existing table");
+        RequiresRebuild("add a foreign key to an existing table");
 
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> DropForeignKey(DropForeignKey action) =>
@@ -134,7 +115,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
 
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> AddUniqueConstraint(AddUniqueConstraint action) =>
-        FoldedOrRebuild(action.UniqueConstraint, "add a unique constraint to an existing table");
+        RequiresRebuild("add a unique constraint to an existing table");
 
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> DropUniqueConstraint(DropUniqueConstraint action) =>
@@ -142,7 +123,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
 
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> AddCheckConstraint(AddCheckConstraint action) =>
-        FoldedOrRebuild(action.CheckConstraint, "add a check constraint to an existing table");
+        RequiresRebuild("add a check constraint to an existing table");
 
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> DropCheckConstraint(DropCheckConstraint action) =>
@@ -167,14 +148,6 @@ internal sealed class SqliteSqlDialect : SqlDialect
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> SetTableComment(SetTableComment action) => Skipped(action);
 
-    // A new table inlines its foreign keys, unique and check constraints (see CreateTable), so the linearizer's
-    // separate Add* action for that table renders as nothing. The same action against a table that is not being
-    // created in this plan is an unsupported in-place ALTER.
-    private Result<IReadOnlyList<SqlStatement>> FoldedOrRebuild(DatabaseMember constraint, string operation) =>
-        constraint.Parent is Table table && _created.TryGetValue(table, out _)
-            ? Statements()
-            : RequiresRebuild(operation);
-
     // ── Columns (only ADD / DROP / RENAME are native to Sqlite) ─────────────────
 
     /// <inheritdoc />
@@ -186,12 +159,8 @@ internal sealed class SqliteSqlDialect : SqlDialect
     // DropColumn, RenameColumn: the base class's standard SQL is valid Sqlite.
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> AlterColumnType(AlterColumnType action) =>
-        RequiresRebuild("change a column's type");
-
-    /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> AlterColumnNullability(AlterColumnNullability action) =>
-        RequiresRebuild("change a column's nullability");
+    protected override Result<IReadOnlyList<SqlStatement>> AlterColumn(AlterColumn action) =>
+        RequiresRebuild("change a column");
 
     /// <inheritdoc />
     protected override Result<IReadOnlyList<SqlStatement>> SetColumnDefault(SetColumnDefault action) =>
@@ -366,25 +335,6 @@ internal sealed class SqliteSqlDialect : SqlDialect
         var generated = column.GeneratedExpression is { } g ? $" GENERATED ALWAYS AS ({g}) STORED" : "";
         return $"{Quote(column.Name)} {type}{nullable}{def}{generated}";
     }
-
-    // A Sqlite foreign key references a table in the same database, so the referenced name is emitted unqualified
-    // (a schema-qualified REFERENCES target is a syntax error). A NO ACTION rule is the engine default and is
-    // omitted so it round-trips clean against PRAGMA foreign_key_list.
-    private string InlineForeignKey(ForeignKey foreignKey)
-    {
-        var onDelete = foreignKey.OnDelete == ReferentialAction.NoAction ? "" : $" ON DELETE {ReferentialActionText(foreignKey.OnDelete)}";
-        var onUpdate = foreignKey.OnUpdate == ReferentialAction.NoAction ? "" : $" ON UPDATE {ReferentialActionText(foreignKey.OnUpdate)}";
-        return $"CONSTRAINT {Quote(foreignKey.Name)} FOREIGN KEY ({ColumnList(foreignKey.ColumnNames)}) " +
-               $"REFERENCES {Quote(foreignKey.References.Name)} ({ColumnList(foreignKey.ReferencedColumnNames)}){onDelete}{onUpdate}";
-    }
-
-    private static string ReferentialActionText(ReferentialAction action) => action switch
-    {
-        ReferentialAction.Cascade => "CASCADE",
-        ReferentialAction.SetNull => "SET NULL",
-        ReferentialAction.SetDefault => "SET DEFAULT",
-        _ => "NO ACTION",
-    };
 
     private static Result<IReadOnlyList<SqlStatement>> IdentityColumn(Column column) =>
         Error($"Sqlite does not support identity columns (column '{column.Name}'). Model an auto-incrementing key as an INTEGER primary key (a rowid alias) instead.");

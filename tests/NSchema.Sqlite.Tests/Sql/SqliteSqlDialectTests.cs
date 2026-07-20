@@ -237,10 +237,9 @@ public sealed class SqliteSqlDialectTests : SqliteTestBase
     [Fact]
     public async Task RoundTrip_RichTable_IntrospectsToTheSameStructure()
     {
-        // A table with every kind of constraint NSchema can carry on Sqlite. The linearizer emits the FK,
-        // unique and check as separate Add* actions; the dialect inlines them into the CREATE TABLE and the
-        // separate actions render as nothing. What is applied must read back with the author's constraint
-        // names intact, or a re-plan would churn.
+        // A table with every kind of constraint NSchema can carry on Sqlite. The linearizer folds them into the
+        // CREATE TABLE (Sqlite has no ALTER TABLE ADD CONSTRAINT). What is applied must read back with the
+        // author's constraint names intact, or a re-plan would churn.
         var users = new Table
         {
             Name = "users",
@@ -277,9 +276,6 @@ public sealed class SqliteSqlDialectTests : SqliteTestBase
         await Apply(
             new CreateTable(Schema, users),
             new CreateTable(Schema, orders),
-            new AddForeignKey(new(Schema, "orders"), orders.ForeignKeys[0]),
-            new AddUniqueConstraint(new(Schema, "orders"), orders.UniqueConstraints[0]),
-            new AddCheckConstraint(new(Schema, "orders"), orders.CheckConstraints[0]),
             new CreateIndex(new(Schema, "orders"), new TableIndex { Name = "idx_orders_user", Columns = ["user_id"] }));
 
         var introspected = (await Introspect()).Schemas[0].Tables.Single(t => t.Name.Value == "orders");
