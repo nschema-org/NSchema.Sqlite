@@ -1,0 +1,7 @@
+﻿{
+  statements: [
+    ALTER TABLE "main"."users" ADD COLUMN "status" varchar(20),
+    UPDATE "users" SET status = 'active' WHERE status IS NULL,
+    CREATE INDEX "main"."idx_users_status" ON "users" ("status")
+  ]
+}

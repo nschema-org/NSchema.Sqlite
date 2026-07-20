@@ -1,16 +1,11 @@
 ﻿{
-  Statements: [
-    {
-      Sql:
+  statements: [    
 CREATE TABLE "main"."users" (
     "id" bigint NOT NULL,
     "email" varchar(255) NOT NULL,
     "created_at" datetimeoffset NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "notes" text NOT NULL,
+    "notes" text,
     CONSTRAINT "pk_users" PRIMARY KEY ("id")
-),
-      RunOutsideTransaction: false
-    }
-  ],
-  IsEmpty: false
+)
+  ]
 }

@@ -1,6 +1,7 @@
-using NSchema.Schema.Model.Indexes;
-using NSchema.Schema.Model.Tables;
-using NSchema.Schema.Model.Triggers;
+using NSchema.Model;
+using NSchema.Model.Indexes;
+using NSchema.Model.Tables;
+using NSchema.Model.Triggers;
 
 namespace NSchema.Sqlite.Sql;
 
@@ -530,11 +531,11 @@ internal static class SqliteDdl
             // A parenthesised key (or anything that is not a single bare/quoted identifier) is an expression.
             if (item[0].Kind == SqliteTokenKind.Parens)
             {
-                columns.Add(new IndexColumn(item[0].Text.Trim(), IsExpression: true, sort));
+                columns.Add(new IndexColumn(Expression: new SqlText(item[0].Text.Trim()), Sort: sort));
             }
             else
             {
-                columns.Add(new IndexColumn(item[0].Text, IsExpression: false, sort));
+                columns.Add(new IndexColumn(new SqlIdentifier(item[0].Text), Sort: sort));
             }
         }
 

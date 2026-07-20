@@ -1,29 +1,31 @@
 using System.Data.Common;
-using NSchema.Schema;
-using NSchema.Schema.Model;
-using NSchema.Schema.Model.Columns;
-using NSchema.Schema.Model.Constraints;
-using NSchema.Schema.Model.Indexes;
-using NSchema.Schema.Model.Schemas;
-using NSchema.Schema.Model.Tables;
-using NSchema.Schema.Model.Triggers;
-using NSchema.Schema.Model.Views;
+using NSchema.Deployment.Backends;
+using NSchema.Model;
+using NSchema.Model.Columns;
+using NSchema.Model.Constraints;
+using NSchema.Model.Indexes;
+using NSchema.Model.Schemas;
+using NSchema.Model.Tables;
+using NSchema.Model.Triggers;
+using NSchema.Model.Views;
 
 namespace NSchema.Sqlite.Sql;
 
 /// <summary>
-/// Reads a live Sqlite database into an NSchema <see cref="DatabaseSchema"/>.
+/// Reads a live Sqlite database into an NSchema <see cref="Database"/>.
 /// </summary>
-internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISchemaProvider
+internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) : IDatabaseIntrospector
 {
     private const string SchemaName = "main";
 
-    public async ValueTask<DatabaseSchema> GetSchema(string[]? schemaNames = null, CancellationToken cancellationToken = default)
+    public async ValueTask<Database> GetDatabase(PlanningScope scope, CancellationToken cancellationToken = default)
     {
         // Sqlite has one primary database, surfaced as 'main'. A scope that explicitly excludes it sees nothing.
-        if (schemaNames is { Length: > 0 } && !schemaNames.Contains(SchemaName, StringComparer.OrdinalIgnoreCase))
+        // (The scope is an optimization hint, so the case-insensitive match may over-return; the engine re-applies
+        // the scope after every read.)
+        if (!scope.IsUnscoped && !scope.SchemaNames.Any(s => string.Equals(s.Value, SchemaName, StringComparison.OrdinalIgnoreCase)))
         {
-            return new DatabaseSchema([]);
+            return new Database();
         }
 
         await using var connection = await source.OpenConnectionAsync(cancellationToken);
@@ -51,10 +53,13 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
         var views = objects
             .Where(o => o is { Type: "view", Sql: not null })
             .OrderBy(o => o.Name, StringComparer.Ordinal)
-            .Select(v => new View(v.Name, SqliteDdl.ExtractViewBody(v.Sql!)))
+            .Select(v => new View { Name = v.Name, Body = SqliteDdl.ExtractViewBody(v.Sql!) })
             .ToList();
 
-        return new DatabaseSchema([new SchemaDefinition(SchemaName, Tables: tables, Views: views)]);
+        return new Database
+        {
+            Schemas = [new Schema { Name = SchemaName, Tables = [.. tables], Views = [.. views] }],
+        };
     }
 
     // ── sqlite_master ──────────────────────────────────────────────────────────
@@ -98,16 +103,14 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
         var primaryKeyColumns = new List<(string Name, int Position)>();
         await foreach (var row in ReadColumns(connection, table.Name, ct))
         {
-            columns.Add(new Column(
-                row.Name,
-                ParseType(row.Type),
-                IsNullable: !row.NotNull,
-                IsIdentity: false,
-                DefaultExpression: row.Default,
-                OldName: null,
-                Comment: null,
-                IdentityOptions: null,
-                GeneratedExpression: generated.GetValueOrDefault(row.Name)));
+            columns.Add(new Column
+            {
+                Name = row.Name,
+                Type = ParseType(row.Type),
+                IsNullable = !row.NotNull,
+                DefaultExpression = row.Default,
+                GeneratedExpression = generated.GetValueOrDefault(row.Name),
+            });
 
             if (row.PrimaryKeyPosition > 0)
             {
@@ -115,43 +118,50 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
             }
         }
 
-        var primaryKey = BuildPrimaryKey(table.Name, definition, primaryKeyColumns);
-
         var foreignKeys = (definition?.ForeignKeys ?? [])
-            .Select(fk => new ForeignKey(
-                fk.Name ?? $"fk_{table.Name}_{string.Join("_", fk.Columns)}",
-                fk.Columns, SchemaName, fk.ReferencedTable, fk.ReferencedColumns, fk.OnDelete, fk.OnUpdate))
-            .ToList();
+            .Select(fk => new ForeignKey
+            {
+                Name = fk.Name ?? $"fk_{table.Name}_{string.Join("_", fk.Columns)}",
+                ColumnNames = [.. fk.Columns.Select(c => new SqlIdentifier(c))],
+                References = new ObjectAddress(new SqlIdentifier(SchemaName), new SqlIdentifier(fk.ReferencedTable)),
+                ReferencedColumnNames = [.. fk.ReferencedColumns.Select(c => new SqlIdentifier(c))],
+                OnDelete = fk.OnDelete,
+                OnUpdate = fk.OnUpdate,
+            });
 
         var uniqueConstraints = (definition?.UniqueConstraints ?? [])
-            .Select(uq => new UniqueConstraint(uq.Name ?? $"uq_{table.Name}_{string.Join("_", uq.Columns)}", uq.Columns))
-            .ToList();
+            .Select(uq => new UniqueConstraint
+            {
+                Name = uq.Name ?? $"uq_{table.Name}_{string.Join("_", uq.Columns)}",
+                ColumnNames = [.. uq.Columns.Select(c => new SqlIdentifier(c))],
+            });
 
         var checkConstraints = (definition?.CheckConstraints ?? [])
-            .Select((ck, i) => new CheckConstraint(ck.Name ?? $"ck_{table.Name}_{i + 1}", ck.Expression))
-            .ToList();
+            .Select((ck, i) => new CheckConstraint
+            {
+                Name = ck.Name ?? $"ck_{table.Name}_{i + 1}",
+                Expression = ck.Expression,
+            });
 
         var indexes = indexObjects
             .Select(o => BuildIndex(o.Name, o.Sql!))
-            .Where(idx => idx is not null)
-            .Select(idx => idx!)
-            .ToList();
+            .OfType<TableIndex>();
 
         var triggers = triggerObjects
             .Select(o => BuildTrigger(o.Name, o.Sql!))
-            .Where(trigger => trigger is not null)
-            .Select(trigger => trigger!)
-            .ToList();
+            .OfType<Trigger>();
 
-        return new Table(
-            table.Name,
-            PrimaryKey: primaryKey,
-            Columns: columns,
-            ForeignKeys: foreignKeys,
-            UniqueConstraints: uniqueConstraints,
-            CheckConstraints: checkConstraints,
-            Indexes: indexes,
-            Triggers: triggers);
+        return new Table
+        {
+            Name = table.Name,
+            PrimaryKey = BuildPrimaryKey(table.Name, definition, primaryKeyColumns),
+            Columns = [.. columns],
+            ForeignKeys = [.. foreignKeys],
+            UniqueConstraints = [.. uniqueConstraints],
+            CheckConstraints = [.. checkConstraints],
+            Indexes = [.. indexes],
+            Triggers = [.. triggers],
+        };
     }
 
     // Sqlite triggers are inline-body (no function), single-event, and BEFORE/AFTER on a table. The name and table come
@@ -161,9 +171,16 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
         var parsed = SqliteDdl.ParseCreateTrigger(sql);
         return parsed is null
             ? null
-            : new Trigger(name, parsed.Timing, parsed.Events, Function: null,
-                Level: parsed.ForEachRow ? TriggerLevel.Row : TriggerLevel.Statement,
-                UpdateOfColumns: parsed.UpdateOfColumns, When: parsed.When, Body: parsed.Body);
+            : new Trigger
+            {
+                Name = name,
+                Timing = parsed.Timing,
+                Events = parsed.Events,
+                Level = parsed.ForEachRow ? TriggerLevel.Row : TriggerLevel.Statement,
+                UpdateOfColumns = [.. parsed.UpdateOfColumns.Select(c => new SqlIdentifier(c))],
+                When = parsed.When,
+                Body = parsed.Body,
+            };
     }
 
     private static PrimaryKey? BuildPrimaryKey(string tableName, SqliteTableDefinition? definition, List<(string Name, int Position)> pragmaColumns)
@@ -172,7 +189,11 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
         // the parser missed (e.g. an oddly-formatted inline `INTEGER PRIMARY KEY` in an imported database).
         if (definition?.PrimaryKey is { } parsed)
         {
-            return new PrimaryKey(parsed.Name ?? $"pk_{tableName}", parsed.Columns);
+            return new PrimaryKey
+            {
+                Name = parsed.Name ?? $"pk_{tableName}",
+                ColumnNames = [.. parsed.Columns.Select(c => new SqlIdentifier(c))],
+            };
         }
 
         if (pragmaColumns.Count == 0)
@@ -180,8 +201,11 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
             return null;
         }
 
-        var columns = pragmaColumns.OrderBy(c => c.Position).Select(c => c.Name).ToList();
-        return new PrimaryKey($"pk_{tableName}", columns);
+        return new PrimaryKey
+        {
+            Name = $"pk_{tableName}",
+            ColumnNames = [.. pragmaColumns.OrderBy(c => c.Position).Select(c => new SqlIdentifier(c.Name))],
+        };
     }
 
     private static TableIndex? BuildIndex(string name, string sql)
@@ -189,7 +213,13 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
         var parsed = SqliteDdl.ParseCreateIndex(sql);
         return parsed is null
             ? null
-            : new TableIndex(name, parsed.Columns, parsed.IsUnique, Comment: null, parsed.Predicate);
+            : new TableIndex
+            {
+                Name = name,
+                Columns = [.. parsed.Columns],
+                IsUnique = parsed.IsUnique,
+                Predicate = parsed.Predicate,
+            };
     }
 
     // ── Columns (PRAGMA table_xinfo) ─────────────────────────────────────────────
@@ -223,7 +253,7 @@ internal sealed class SqliteSchemaProvider(SqliteConnectionSource source) : ISch
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
-    // Sqlite stores a column's declared type verbatim; the generator writes NSchema's canonical type string, so
+    // Sqlite stores a column's declared type verbatim; the dialect writes NSchema's canonical type string, so
     // SqlType.Parse reverses it exactly. An untyped column (legal in Sqlite) maps to BLOB affinity's nearest model.
     private static SqlType ParseType(string declaredType) =>
         string.IsNullOrWhiteSpace(declaredType) ? SqlType.VarBinary() : SqlType.Parse(declaredType);

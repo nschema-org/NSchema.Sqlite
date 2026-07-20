@@ -21,10 +21,10 @@ Sqlite has a deliberately small surface, so this provider models what Sqlite act
 
 - **Supported:** tables, columns (with `DEFAULT` and stored generated columns), primary keys, foreign keys, unique constraints, check constraints, indexes, views, and triggers.
 - **The schema is always `main`.** Sqlite's primary database is `main`; declare objects as `main.<name>` in your DDL. (`temp` and `ATTACH`ed databases are out of scope.)
-- **Native `ALTER TABLE` only.** Create/drop/rename tables and columns, and create/drop indexes/views, are applied directly. Operations Sqlite cannot do in place — changing a column's type, nullability or default, or adding/dropping a constraint on an existing table — require a full table rebuild and currently raise a clear `NotSupportedException` rather than silently rebuilding.
+- **Native `ALTER TABLE` only.** Create/drop/rename tables and columns, and create/drop indexes/views, are applied directly. Operations Sqlite cannot do in place — changing a column's type, nullability or default, or adding/dropping a constraint on an existing table — require a full table rebuild and are currently reported as clear plan errors rather than silently rebuilding.
 - **Triggers** carry an inline body, written as `CREATE TRIGGER … ON main.t AS $$ BEGIN … END $$`, and fire `BEFORE` or `AFTER` a single statement event.
-- **Not supported (Sqlite has no equivalent):** schemas other than `main`, sequences, enums, domains, composite types, stored functions/procedures, `GRANT`s, and materialized views. These raise `NotSupportedException`.
-- **Comments are not persisted.** Sqlite has no `COMMENT ON`, so documentation comments are ignored when generating SQL.
+- **Not supported (Sqlite has no equivalent):** schemas other than `main`, sequences, enums, domains, composite types, stored functions/procedures, `GRANT`s, and materialized views. These are reported as plan errors.
+- **Comments are not persisted.** Sqlite has no `COMMENT ON`, so documentation comments are skipped with a warning when rendering SQL.
 
 Column types are emitted using NSchema's canonical type names (e.g. `bigint`, `varchar(255)`, `decimal(18,2)`); Sqlite applies its normal type affinity and preserves the declared name, so a schema round-trips without phantom drift.
 
