@@ -1,5 +1,5 @@
+using NSchema.Configuration.Plugins;
 using NSchema.Plugins;
-using NSchema.Plugins.Model.Config;
 
 namespace NSchema.Sqlite;
 
@@ -34,12 +34,17 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
         """;
 
     /// <inheritdoc />
-    public Result Configure(NSchemaApplicationBuilder builder, PluginConfig config)
+    public Result Configure(NSchemaApplicationBuilder builder, PluginSettings settings)
     {
-        var bound = config.Bind<SqliteSettings>();
+        var bound = settings.Get<SqliteSettings>();
+        if (bound.Value is not { } options)
+        {
+            return Result.From(bound.Diagnostics);
+        }
+
         var diagnostics = bound.Diagnostics.ToList();
 
-        var connectionString = Environment.GetEnvironmentVariable(EnvConnectionString) ?? bound.Value?.ConnectionString;
+        var connectionString = Environment.GetEnvironmentVariable(EnvConnectionString) ?? options.ConnectionString;
         if (string.IsNullOrEmpty(connectionString))
         {
             diagnostics.Add(Diagnostic.Error(DiagnosticSource,
