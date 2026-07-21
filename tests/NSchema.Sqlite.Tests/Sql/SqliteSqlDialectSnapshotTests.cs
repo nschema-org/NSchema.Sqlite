@@ -1,3 +1,4 @@
+using NSchema.Diff.Model;
 using NSchema.Model;
 using NSchema.Model.Columns;
 using NSchema.Model.Constraints;
@@ -74,12 +75,11 @@ public sealed class SqliteSqlDialectSnapshotTests
         }));
 
     [Fact]
-    public Task CreateTable_WithAllConstraints_InlinesThemAndFoldsSeparateAddActions()
+    public Task CreateTable_WithAllConstraints_InlinesThem()
     {
-        // The linearizer creates a table with only columns + PK inline, then emits the foreign keys, unique and
-        // check constraints as separate Add* actions. Sqlite can't ALTER TABLE ADD CONSTRAINT, so the dialect
-        // inlines them into the CREATE TABLE and the separate actions render as nothing — the snapshot must show
-        // one CREATE TABLE carrying everything, and nothing after it.
+        // Sqlite can't ALTER TABLE ADD CONSTRAINT, so a new table carries every constraint inline — the primary
+        // key, then unique and check constraints, then foreign keys (referenced tables unqualified). The linearizer
+        // folds these into the CREATE TABLE, so no separate Add* action follows.
         var table = new Table
         {
             Name = "orders",
@@ -106,12 +106,22 @@ public sealed class SqliteSqlDialectSnapshotTests
             CheckConstraints = [new CheckConstraint { Name = "ck_orders_total", Expression = "total >= 0" }],
         };
 
-        return VerifyRendering(
-            new CreateTable(Schema, table),
-            new AddForeignKey(new(Schema, "orders"), table.ForeignKeys[0]),
-            new AddUniqueConstraint(new(Schema, "orders"), table.UniqueConstraints[0]),
-            new AddCheckConstraint(new(Schema, "orders"), table.CheckConstraints[0]));
+        return VerifyRendering(new CreateTable(Schema, table));
     }
+
+    [Fact]
+    public Task AddConstraint_ToExistingTable_IsRebuildError() => VerifyRendering(
+        // A constraint add only reaches the dialect for an existing table (a new table inlines its constraints);
+        // Sqlite has no ALTER TABLE ADD CONSTRAINT, so each is a rebuild error.
+        new AddForeignKey(new(Schema, "orders"), new ForeignKey
+        {
+            Name = "fk_orders_user",
+            ColumnNames = ["user_id"],
+            References = new(Schema, "users"),
+            ReferencedColumnNames = ["id"],
+        }),
+        new AddUniqueConstraint(new(Schema, "orders"), new UniqueConstraint { Name = "uq_orders_code", ColumnNames = ["code"] }),
+        new AddCheckConstraint(new(Schema, "orders"), new CheckConstraint { Name = "ck_orders_total", Expression = "total >= 0" }));
 
     [Fact]
     public Task TableLifecycle() => VerifyRendering(
@@ -306,15 +316,14 @@ public sealed class SqliteSqlDialectSnapshotTests
         // statements the linearizer placed it among — no translation, no quoting.
         new AddColumn(new(Schema, "users"), new Column { Name = "status", Type = SqlType.VarChar(20), IsNullable = true }),
         new ExecuteScript(new ChangeScript("backfill_status", "UPDATE \"users\" SET status = 'active' WHERE status IS NULL",
-            Schema, ChangeTrigger.AddColumn, "users", "status")),
+            new ChangeTarget(Schema, "users", "status", ChangeTrigger.AddColumn))),
         new CreateIndex(new(Schema, "users"), new TableIndex { Name = "idx_users_status", Columns = ["status"] }));
 
     // ── Unsupported operations are error diagnostics that block the plan ────────
 
     public static TheoryData<string, MigrationAction> UnsupportedActions() => new()
     {
-        { "alter column type", new AlterColumnType(new(Schema, "users", "id"), SqlType.Int, SqlType.BigInt) },
-        { "alter column nullability", new AlterColumnNullability(new(Schema, "users", "email"), true, false) },
+        { "alter column", new AlterColumn(new(Schema, "users"), new Column { Name = "id", Type = SqlType.BigInt }, Type: new(SqlType.Int, SqlType.BigInt)) },
         { "set column default", new SetColumnDefault(new(Schema, "users", "email"), null, "'x'") },
         {
             "add foreign key to existing table",

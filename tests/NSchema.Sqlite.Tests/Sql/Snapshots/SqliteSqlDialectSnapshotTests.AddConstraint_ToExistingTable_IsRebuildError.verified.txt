@@ -1,0 +1,7 @@
+﻿{
+  diagnostics: [
+    Error: Sqlite cannot add a foreign key to an existing table in place; this requires rebuilding the table, which NSchema.Sqlite does not support. Recreate the table instead.,
+    Error: Sqlite cannot add a unique constraint to an existing table in place; this requires rebuilding the table, which NSchema.Sqlite does not support. Recreate the table instead.,
+    Error: Sqlite cannot add a check constraint to an existing table in place; this requires rebuilding the table, which NSchema.Sqlite does not support. Recreate the table instead.
+  ]
+}

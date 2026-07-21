@@ -10,7 +10,7 @@ namespace NSchema.Sqlite.Tests;
 /// </summary>
 /// <remarks>
 /// The canonical change-script shape — a NOT NULL, no-default column add — is not exercisable here: the core
-/// decomposes it into add-nullable → backfill → tighten to NOT NULL, and that final <c>AlterColumnNullability</c>
+/// decomposes it into add-nullable → backfill → tighten to NOT NULL, and that final <c>AlterColumn</c>
 /// needs a table rebuild, which NSchema.Sqlite does not support. A nullable column add with a matched backfill
 /// runs the same match-and-weave path end to end without the rebuild.
 /// </remarks>

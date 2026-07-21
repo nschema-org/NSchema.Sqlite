@@ -1,6 +1,6 @@
 ﻿{
-  statements: [    
-CREATE TABLE "main"."orders" (
+  statements: [
+    CREATE TABLE "main"."orders" (
     "id" bigint NOT NULL,
     "user_id" bigint NOT NULL,
     "code" varchar(20) NOT NULL,

@@ -1,6 +1,6 @@
 ﻿{
-  statements: [    
-CREATE TABLE "main"."users" (
+  statements: [
+    CREATE TABLE "main"."users" (
     "id" bigint NOT NULL,
     "email" varchar(255) NOT NULL,
     "created_at" datetimeoffset NOT NULL DEFAULT CURRENT_TIMESTAMP,
