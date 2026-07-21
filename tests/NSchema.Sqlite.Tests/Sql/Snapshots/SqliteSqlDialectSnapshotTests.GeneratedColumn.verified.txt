@@ -1,6 +1,6 @@
 ﻿{
-  statements: [    
-CREATE TABLE "main"."boxes" (
+  statements: [
+    CREATE TABLE "main"."boxes" (
     "w" int NOT NULL,
     "h" int NOT NULL,
     "area" int GENERATED ALWAYS AS (w * h) STORED

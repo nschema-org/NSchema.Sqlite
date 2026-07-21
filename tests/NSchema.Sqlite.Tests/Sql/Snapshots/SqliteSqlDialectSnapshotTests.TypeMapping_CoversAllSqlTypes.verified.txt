@@ -1,6 +1,6 @@
 ﻿{
-  statements: [    
-CREATE TABLE "main"."types" (
+  statements: [
+    CREATE TABLE "main"."types" (
     "boolean" boolean,
     "tinyint" tinyint,
     "smallint" smallint,
