@@ -1,5 +1,7 @@
 using NSchema.Operations;
 using NSchema.Plugins;
+using NSchema.Plugins.Model;
+using NSchema.Plugins.Model.Config;
 using NSchema.Sqlite.Tests.Fixtures;
 
 namespace NSchema.Sqlite.Tests;
