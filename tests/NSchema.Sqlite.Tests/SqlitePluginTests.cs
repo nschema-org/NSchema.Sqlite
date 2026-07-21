@@ -1,7 +1,6 @@
+using NSchema.Configuration.Plugins;
 using NSchema.Plan.Backends;
 using NSchema.Plugins;
-using NSchema.Plugins.Model;
-using NSchema.Plugins.Model.Config;
 
 namespace NSchema.Sqlite.Tests;
 
@@ -40,7 +39,7 @@ public sealed class SqlitePluginTests : IDisposable
     {
         // Arrange
         var builder = NSchemaApplication.CreateBuilder();
-        var config = Config(("connection_string", ConfigValue.OfString("Data Source=app.db")));
+        var config = Config(("connection_string", "Data Source=app.db"));
 
         // Act
         var result = _sut.Configure(builder, config);
@@ -72,15 +71,15 @@ public sealed class SqlitePluginTests : IDisposable
         // Arrange
         var builder = NSchemaApplication.CreateBuilder();
         var config = Config(
-            ("connection_string", ConfigValue.OfString("Data Source=app.db")),
-            ("nonsense", ConfigValue.OfString("x")));
+            ("connection_string", "Data Source=app.db"),
+            ("nonsense", "x"));
 
         // Act
         var result = _sut.Configure(builder, config);
 
         // Assert
         result.IsFailure.ShouldBeTrue();
-        result.Errors.ShouldContain(e => e.Message.Contains("nonsense"));
+        result.Errors.ShouldContain(e => e.Message.Contains("nonsense", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -99,6 +98,6 @@ public sealed class SqlitePluginTests : IDisposable
         result.Errors.ShouldBeEmpty();
     }
 
-    private static PluginConfig Config(params (string Key, ConfigValue Value)[] attributes)
-        => new(new PluginLabel("sqlite"), attributes.ToDictionary(a => new AttributeKey(a.Key), a => a.Value));
+    private static PluginSettings Config(params (string Key, string? Value)[] attributes)
+        => new(new PluginLabel("sqlite"), attributes.ToDictionary(a => a.Key, a => a.Value, StringComparer.OrdinalIgnoreCase));
 }

@@ -1,7 +1,6 @@
+using NSchema.Configuration.Plugins;
 using NSchema.Operations;
 using NSchema.Plugins;
-using NSchema.Plugins.Model;
-using NSchema.Plugins.Model.Config;
 using NSchema.Sqlite.Tests.Fixtures;
 
 namespace NSchema.Sqlite.Tests;
@@ -51,10 +50,10 @@ public sealed class SqlitePluginEndToEndTests : SqliteTestBase
                 """, TestContext.Current.CancellationToken);
 
             var builder = NSchemaApplication.CreateBuilder();
-            var configured = new SqlitePlugin().Configure(builder, new PluginConfig(new PluginLabel("sqlite"),
-                new Dictionary<AttributeKey, ConfigValue>
+            var configured = new SqlitePlugin().Configure(builder, new PluginSettings(new PluginLabel("sqlite"),
+                new Dictionary<string, string?>
                 {
-                    [new AttributeKey("connection_string")] = ConfigValue.OfString(ConnectionString),
+                    ["connection_string"] = ConnectionString,
                 }));
             configured.IsSuccess.ShouldBeTrue();
 
