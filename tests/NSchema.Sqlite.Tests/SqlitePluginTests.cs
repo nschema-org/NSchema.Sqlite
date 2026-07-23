@@ -1,6 +1,7 @@
 using NSchema.Configuration.Plugins;
 using NSchema.Plan.Backends;
 using NSchema.Plugins;
+using NSchema.Project.Nsql.Syntax.Blocks;
 
 namespace NSchema.Sqlite.Tests;
 
@@ -23,7 +24,13 @@ public sealed class SqlitePluginTests : IDisposable
 
     [Fact]
     public void GetScaffoldTemplate_ReturnsDatabaseStatement()
-        => _sut.GetScaffoldTemplate(new ScaffoldContext()).ShouldContain("DATABASE sqlite");
+    {
+        var block = _sut.GetScaffoldTemplate(new ScaffoldContext());
+
+        block.Keyword.ShouldBe(BlockKeyword.Database);
+        block.Label!.Value.ShouldBe("sqlite");
+        block.Attributes.Single(a => a.Key == "connection_string").Value.ShouldBe("Data Source=app.db");
+    }
 
     [Fact]
     public void GetSampleSchema_UsesTheMainSchema()
