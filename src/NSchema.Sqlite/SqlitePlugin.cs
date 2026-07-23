@@ -1,5 +1,9 @@
 using NSchema.Configuration.Plugins;
 using NSchema.Plugins;
+using NSchema.Project.Nsql;
+using NSchema.Project.Nsql.Syntax;
+using NSchema.Project.Nsql.Syntax.Blocks;
+using NSchema.Project.Nsql.Tokens;
 
 namespace NSchema.Sqlite;
 
@@ -12,14 +16,17 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
     private const string EnvConnectionString = "NSCHEMA_SQLITE_CONNECTION_STRING";
 
     /// <inheritdoc />
-    public string GetScaffoldTemplate(ScaffoldContext context) =>
-        $"""
-        DATABASE sqlite (
-          -- A local SQLite database file. The {EnvConnectionString} environment
-          -- variable overrides the value below.
-          connection_string = 'Data Source=app.db'
-        );
-        """;
+    public BlockStatement GetScaffoldTemplate(ScaffoldContext context) =>
+        new(BlockKeyword.Database, Identifier.Synthetic(DiagnosticSource), new SeparatedSyntaxList<BlockAttribute>(
+        [
+            new BlockAttribute("connection_string", "Data Source=app.db"),
+        ]))
+        {
+            DocComment = new Token(
+                TokenKind.DocComment,
+                $"A local SQLite database file. The {EnvConnectionString} environment variable overrides\nthe value below.",
+                SourcePosition.None),
+        };
 
     /// <inheritdoc />
     public string GetSampleSchema() =>

@@ -23,7 +23,8 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
         // Sqlite has one primary database, surfaced as 'main'. A scope that explicitly excludes it sees nothing.
         // (The scope is an optimization hint, so the case-insensitive match may over-return; the engine re-applies
         // the scope after every read.)
-        if (!scope.IsUnscoped && !scope.SchemaNames.Any(s => string.Equals(s.Value, SchemaName, StringComparison.OrdinalIgnoreCase)))
+        if (!scope.IsUnscoped
+            && !scope.Addresses.Any(a => string.Equals(a.SchemaName?.Value, SchemaName, StringComparison.OrdinalIgnoreCase)))
         {
             return new Database();
         }

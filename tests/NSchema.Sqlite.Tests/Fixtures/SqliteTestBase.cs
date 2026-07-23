@@ -57,7 +57,7 @@ public abstract class SqliteTestBase : IAsyncLifetime
     private protected async Task<Database> Introspect()
     {
         var introspector = new SqliteDatabaseIntrospector(new SqliteConnectionSource(ConnectionString));
-        return await introspector.GetDatabase(PlanningScope.To([new SqlIdentifier("main")]), TestContext.Current.CancellationToken);
+        return await introspector.GetDatabase(PlanningScope.To(new SchemaAddress("main")), TestContext.Current.CancellationToken);
     }
 
     private protected async Task Exec(string sql)
