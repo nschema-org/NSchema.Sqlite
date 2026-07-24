@@ -6,7 +6,6 @@ using NSchema.Model.Tables;
 using NSchema.Model.Triggers;
 using NSchema.Model.Views;
 using NSchema.Plan.Model.Columns;
-using NSchema.Plan.Model.Constraints;
 using NSchema.Plan.Model.Indexes;
 using NSchema.Plan.Model.Schemas;
 using NSchema.Plan.Model.Tables;
@@ -303,7 +302,7 @@ public sealed class SqliteSqlDialectTests : SqliteTestBase
             ("code", SqlType.VarChar(20), false),
             ("total", SqlType.Decimal(10, 2), false),
         ]);
-        introspected.Columns.Single(c => c.Name.Value == "total").DefaultExpression.ShouldBe(new SqlText("0"));
+        introspected.Columns.Single(c => c.Name.Value == "total").DefaultExpression.ShouldBe(new SqlDefaultExpression("0"));
     }
 
     [Fact]
