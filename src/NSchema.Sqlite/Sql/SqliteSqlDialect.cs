@@ -1,4 +1,3 @@
-using NSchema.Model;
 using NSchema.Model.Columns;
 using NSchema.Model.Indexes;
 using NSchema.Model.Tables;

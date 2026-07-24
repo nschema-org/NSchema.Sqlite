@@ -1,4 +1,3 @@
-using NSchema.Diff.Model;
 using NSchema.Model;
 using NSchema.Model.Columns;
 using NSchema.Model.Constraints;
