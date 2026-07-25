@@ -5,12 +5,12 @@ using NSchema.Model.Indexes;
 using NSchema.Model.Tables;
 using NSchema.Model.Triggers;
 using NSchema.Model.Views;
-using NSchema.Plan.Model.Columns;
-using NSchema.Plan.Model.Indexes;
-using NSchema.Plan.Model.Schemas;
-using NSchema.Plan.Model.Tables;
-using NSchema.Plan.Model.Triggers;
-using NSchema.Plan.Model.Views;
+using NSchema.Plan.Domain.Columns;
+using NSchema.Plan.Domain.Indexes;
+using NSchema.Plan.Domain.Schemas;
+using NSchema.Plan.Domain.Tables;
+using NSchema.Plan.Domain.Triggers;
+using NSchema.Plan.Domain.Views;
 using NSchema.Sqlite.Tests.Fixtures;
 
 namespace NSchema.Sqlite.Tests.Sql;
