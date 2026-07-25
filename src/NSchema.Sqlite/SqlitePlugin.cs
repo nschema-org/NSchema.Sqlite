@@ -1,8 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using NSchema.Configuration.Plugins;
 using NSchema.Plugins;
 using NSchema.Project.Nsql;
 using NSchema.Project.Nsql.Syntax;
-using NSchema.Project.Nsql.Syntax.Blocks;
+using NSchema.Project.Nsql.Syntax.Settings;
 using NSchema.Project.Nsql.Tokens;
 
 namespace NSchema.Sqlite;
@@ -13,18 +14,17 @@ namespace NSchema.Sqlite;
 public sealed class SqlitePlugin : INSchemaDatabasePlugin
 {
     private const string DiagnosticSource = "sqlite";
-    private const string EnvConnectionString = "NSCHEMA_SQLITE_CONNECTION_STRING";
 
     /// <inheritdoc />
-    public BlockStatement GetScaffoldTemplate(ScaffoldContext context) =>
-        new(BlockKeyword.Database, Identifier.Synthetic(DiagnosticSource), new SeparatedSyntaxList<BlockAttribute>(
+    public SettingsStatement GetScaffoldTemplate(ScaffoldContext context) =>
+        new(SettingsKeyword.Database, Identifier.Synthetic(DiagnosticSource), new SeparatedSyntaxList<Setting>(
         [
-            new BlockAttribute("connection_string", "Data Source=app.db"),
+            new Setting("connection_string", "Data Source=app.db"),
         ]))
         {
             DocComment = new Token(
                 TokenKind.DocComment,
-                $"A local SQLite database file. The {EnvConnectionString} environment variable overrides\nthe value below.",
+                "A local SQLite database file. The NSCHEMA_DATABASE_CONNECTION_STRING environment\nvariable overrides the value below.",
                 SourcePosition.None),
         };
 
@@ -49,22 +49,14 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
             return Result.From(bound.Diagnostics);
         }
 
-        var diagnostics = bound.Diagnostics.ToList();
-
-        var connectionString = Environment.GetEnvironmentVariable(EnvConnectionString) ?? options.ConnectionString;
-        if (string.IsNullOrEmpty(connectionString))
+        // The engine has already applied any NSCHEMA_DATABASE_* override, so the bound value is the final one.
+        if (options.ConnectionString is not { } connectionString)
         {
-            diagnostics.Add(Diagnostic.Error(DiagnosticSource,
-                $"DATABASE sqlite: connection_string is required. Set it via the {EnvConnectionString} environment variable or the statement attribute."));
+            return Result.From(bound.Diagnostics);
         }
 
-        if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
-        {
-            return Result.From(diagnostics);
-        }
-
-        builder.UseSqlite(connectionString!);
-        return Result.From(diagnostics);
+        builder.UseSqlite(connectionString);
+        return Result.From(bound.Diagnostics);
     }
 
     /// <summary>
@@ -72,6 +64,7 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
     /// </summary>
     private sealed record SqliteSettings
     {
+        [Required(ErrorMessage = "DATABASE sqlite: connection_string is required. Set it in the statement, or supply NSCHEMA_DATABASE_CONNECTION_STRING.")]
         public string? ConnectionString { get; init; }
     }
 }

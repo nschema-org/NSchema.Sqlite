@@ -1,6 +1,6 @@
 using Microsoft.Data.Sqlite;
 using NSchema.Model;
-using NSchema.Plan.Model;
+using NSchema.Plan.Domain;
 using NSchema.Sqlite.Sql;
 
 namespace NSchema.Sqlite.Tests.Fixtures;

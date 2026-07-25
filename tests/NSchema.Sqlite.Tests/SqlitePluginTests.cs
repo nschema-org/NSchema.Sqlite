@@ -1,7 +1,7 @@
 using NSchema.Configuration.Plugins;
 using NSchema.Plan.Backends;
 using NSchema.Plugins;
-using NSchema.Project.Nsql.Syntax.Blocks;
+using NSchema.Project.Nsql.Syntax.Settings;
 
 namespace NSchema.Sqlite.Tests;
 
@@ -27,9 +27,9 @@ public sealed class SqlitePluginTests : IDisposable
     {
         var block = _sut.GetScaffoldTemplate(new ScaffoldContext());
 
-        block.Keyword.ShouldBe(BlockKeyword.Database);
+        block.Keyword.ShouldBe(SettingsKeyword.Database);
         block.Label!.Value.ShouldBe("sqlite");
-        block.Attributes.Single(a => a.Key == "connection_string").Value.ShouldBe("Data Source=app.db");
+        block.Settings.Single(a => a.Key == "connection_string").Value.ShouldBe("Data Source=app.db");
     }
 
     [Fact]
@@ -90,12 +90,12 @@ public sealed class SqlitePluginTests : IDisposable
     }
 
     [Fact]
-    public void Configure_EnvironmentConnectionString_SatisfiesOmittedAttribute()
+    public void Configure_SuppliedConnectionString_Succeeds()
     {
-        // Arrange
-        Environment.SetEnvironmentVariable(EnvConnectionString, "Data Source=env.db");
+        // Arrange — the engine applies any NSCHEMA_DATABASE_* override before binding, so by here the
+        // setting is simply present; where it came from is not the plugin's concern.
         var builder = NSchemaApplication.CreateBuilder();
-        var config = Config();
+        var config = Config(("connection_string", "Data Source=env.db"));
 
         // Act
         var result = _sut.Configure(builder, config);
