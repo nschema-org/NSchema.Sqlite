@@ -1,6 +1,8 @@
 using NSchema.Configuration.Plugins;
 using NSchema.Plan.Backends;
 using NSchema.Plugins;
+using NSchema.Project.Nsql;
+using NSchema.Project.Nsql.Syntax.Schemas;
 using NSchema.Project.Nsql.Syntax.Settings;
 
 namespace NSchema.Sqlite.Tests;
@@ -22,10 +24,13 @@ public sealed class SqlitePluginTests : IDisposable
 
     public void Dispose() => Environment.SetEnvironmentVariable(EnvConnectionString, _savedEnv);
 
+    private static SettingsStatement Configured(NsqlDocument document) =>
+        document.Statements.OfType<SettingsStatement>().ShouldHaveSingleItem();
+
     [Fact]
     public void GetScaffoldTemplate_ReturnsDatabaseStatement()
     {
-        var block = _sut.GetScaffoldTemplate(new ScaffoldContext());
+        var block = Configured(_sut.GetScaffoldTemplate(new ScaffoldContext()));
 
         block.Keyword.ShouldBe(SettingsKeyword.Database);
         block.Label!.Value.ShouldBe("sqlite");
@@ -35,10 +40,12 @@ public sealed class SqlitePluginTests : IDisposable
     [Fact]
     public void GetSampleSchema_UsesTheMainSchema()
     {
-        // SQLite exposes everything under 'main' and has no CREATE SCHEMA — the sample declares its table there.
-        var schema = _sut.GetSampleSchema();
+        // Act — SQLite exposes everything under 'main' and has no CREATE SCHEMA, so the sample declares into it.
+        var document = _sut.GetSampleSchema();
 
-        schema.ShouldContain("CREATE TABLE main.widgets");
+        // Assert — 'main' is declared into rather than created.
+        NsqlWriter.Write(document).ShouldContain("CREATE TABLE main.widgets");
+        document.Statements.OfType<CreateSchemaStatement>().ShouldBeEmpty();
     }
 
     [Fact]
