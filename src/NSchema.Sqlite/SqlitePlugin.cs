@@ -1,6 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using NSchema.Configuration.Plugins;
 using NSchema.Plugins;
+using NSchema.Model;
+using NSchema.Model.Columns;
+using NSchema.Model.Schemas;
+using NSchema.Model.Tables;
+using NSchema.Project.Nsql;
 using NSchema.Project.Nsql.Syntax.Settings;
 
 namespace NSchema.Sqlite;
@@ -20,23 +25,40 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
     ];
 
     /// <inheritdoc />
-    public SettingsStatement GetScaffoldTemplate(ScaffoldContext context) =>
-        SettingsStatement.Database(DiagnosticSource)
+    public NsqlDocument GetScaffoldTemplate(ScaffoldContext context) =>
+        new([SettingsStatement.Database(DiagnosticSource)
             .WithSetting("connection_string", $"Data Source={context.Answer("file", "app.db")}")
             .WithDocComment(
-                "A local SQLite database file. The NSCHEMA_DATABASE_CONNECTION_STRING environment\nvariable overrides the value below.");
+                "A local SQLite database file. The NSCHEMA_DATABASE_CONNECTION_STRING environment\nvariable overrides the value below.")]);
 
     /// <inheritdoc />
-    public string GetSampleSchema() =>
-        """
-        -- SQLite surfaces every object under the single 'main' schema, so declare tables
-        -- there and omit CREATE SCHEMA ('main' always exists).
-        CREATE TABLE main.widgets (
-          id   bigint NOT NULL,
-          name text,
-          CONSTRAINT widgets_pkey PRIMARY KEY (id)
-        );
-        """;
+    public NsqlDocument GetSampleSchema() =>
+        NsqlDocument.From(
+            new Database
+            {
+                Schemas =
+                [
+                    new Schema
+                    {
+                        Name = "main",
+                        Tables =
+                        {
+                            new Table
+                            {
+                                Name = "widgets",
+                                Columns =
+                                {
+                                    new Column { Name = "id", Type = SqlType.BigInt },
+                                    new Column { Name = "name", Type = SqlType.Text, IsNullable = true },
+                                },
+                                PrimaryKey = new PrimaryKey { Name = "widgets_pkey", ColumnNames = ["id"] },
+                            },
+                        },
+                    },
+                ],
+            },
+            // 'main' always exists, so it is declared into rather than created.
+            declareSchemas: false);
 
     /// <inheritdoc />
     public Result Configure(NSchemaApplicationBuilder builder, PluginSettings settings)
