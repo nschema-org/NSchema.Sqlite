@@ -16,10 +16,17 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
     private const string DiagnosticSource = "sqlite";
 
     /// <inheritdoc />
+    /// <remarks>The file, rather than the connection string it goes into — that is all SQLite needs.</remarks>
+    public IReadOnlyList<ScaffoldPrompt> GetScaffoldPrompts(ScaffoldContext context) =>
+    [
+        new() { Key = "file", Label = "Database file", Default = "app.db" },
+    ];
+
+    /// <inheritdoc />
     public SettingsStatement GetScaffoldTemplate(ScaffoldContext context) =>
         new(SettingsKeyword.Database, Identifier.Synthetic(DiagnosticSource), new SeparatedSyntaxList<Setting>(
         [
-            new Setting("connection_string", "Data Source=app.db"),
+            new Setting("connection_string", $"Data Source={context.Answer("file", "app.db")}"),
         ]))
         {
             DocComment = new Token(
