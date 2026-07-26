@@ -14,6 +14,10 @@ As a consequence, breaking changes that are specific to this provider (rather th
 
 Tracks the `NSchema.Core` 5.0.0 rearchitecture (lockstep major versioning). See the core changelog for the engine-wide changes; the provider-facing ones are below.
 
+### Added
+
+- **`new` asks which file to use.** The plugin declares the database file as a scaffolding question and composes the answer into the `connection_string` it writes.
+
 ### Changed
 
 - **`UseSqlite(...)` replaces `UseSqliteSchema(...)`,** and `UseSqliteDialect()` replaces `UseSqliteGenerator()`.
