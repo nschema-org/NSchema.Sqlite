@@ -1,10 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using NSchema.Configuration.Plugins;
 using NSchema.Plugins;
-using NSchema.Project.Nsql;
-using NSchema.Project.Nsql.Syntax;
 using NSchema.Project.Nsql.Syntax.Settings;
-using NSchema.Project.Nsql.Tokens;
 
 namespace NSchema.Sqlite;
 
@@ -24,16 +21,10 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
 
     /// <inheritdoc />
     public SettingsStatement GetScaffoldTemplate(ScaffoldContext context) =>
-        new(SettingsKeyword.Database, Identifier.Synthetic(DiagnosticSource), new SeparatedSyntaxList<Setting>(
-        [
-            new Setting("connection_string", $"Data Source={context.Answer("file", "app.db")}"),
-        ]))
-        {
-            DocComment = new Token(
-                TokenKind.DocComment,
-                "A local SQLite database file. The NSCHEMA_DATABASE_CONNECTION_STRING environment\nvariable overrides the value below.",
-                SourcePosition.None),
-        };
+        SettingsStatement.Database(DiagnosticSource)
+            .WithSetting("connection_string", $"Data Source={context.Answer("file", "app.db")}")
+            .WithDocComment(
+                "A local SQLite database file. The NSCHEMA_DATABASE_CONNECTION_STRING environment\nvariable overrides the value below.");
 
     /// <inheritdoc />
     public string GetSampleSchema() =>
