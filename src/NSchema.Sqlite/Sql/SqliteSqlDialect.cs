@@ -2,7 +2,6 @@ using NSchema.Model.Columns;
 using NSchema.Model.Indexes;
 using NSchema.Model.Tables;
 using NSchema.Model.Triggers;
-using NSchema.Plan.Backends;
 using NSchema.Plan.Domain;
 using NSchema.Plan.Domain.Columns;
 using NSchema.Plan.Domain.Constraints;
@@ -11,6 +10,7 @@ using NSchema.Plan.Domain.Schemas;
 using NSchema.Plan.Domain.Tables;
 using NSchema.Plan.Domain.Triggers;
 using NSchema.Plan.Domain.Views;
+using NSchema.Plan.Plugins;
 
 namespace NSchema.Sqlite.Sql;
 

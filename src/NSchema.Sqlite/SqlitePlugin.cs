@@ -25,11 +25,22 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
     ];
 
     /// <inheritdoc />
-    public NsqlDocument GetScaffoldTemplate(ScaffoldContext context) =>
-        new([SettingsStatement.Database(DiagnosticSource)
-            .WithSetting("connection_string", $"Data Source={context.Answer("file", "app.db")}")
-            .WithDocComment(
-                "A local SQLite database file. The NSCHEMA_DATABASE_CONNECTION_STRING environment\nvariable overrides the value below.")]);
+    public NsqlDocument GetScaffoldTemplate(ScaffoldContext context)
+    {
+        // Nothing about this provider's configuration differs per environment: the connection string comes from
+        // NSCHEMA_DATABASE_CONNECTION_STRING, so an overlay has nothing to say.
+        if (context.EnvironmentName is not null)
+        {
+            return NsqlDocument.Empty;
+        }
+
+        return new NsqlDocument([
+            SettingsStatement.Database(DiagnosticSource)
+                .WithSetting("connection_string", $"Data Source={context.Answer("file", "app.db")}")
+                .WithDocComment(
+                    "A local SQLite database file. The NSCHEMA_DATABASE_CONNECTION_STRING environment\nvariable overrides the value below."),
+        ]);
+    }
 
     /// <inheritdoc />
     public NsqlDocument GetSampleSchema() =>
