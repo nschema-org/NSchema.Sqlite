@@ -35,6 +35,8 @@ internal sealed class SqliteSqlDialect : SqlDialect
 {
     private const string MainSchema = "main";
 
+    public override bool CanAlterForeignKeys => false;
+
     /// <inheritdoc />
     protected override string Name => "Sqlite";
 
@@ -187,18 +189,18 @@ internal sealed class SqliteSqlDialect : SqlDialect
         var index = action.Index;
         if (index.Method is not null)
         {
-            return Error($"Sqlite indexes have no access method (USING) — index '{index.Name}' specifies '{index.Method}'.");
+            return Unsupported($"Sqlite indexes have no access method (USING) — index '{index.Name}' specifies '{index.Method}'.");
         }
 
         if (index.Include.Count > 0)
         {
-            return Error($"Sqlite indexes do not support INCLUDE columns — index '{index.Name}'.");
+            return Unsupported($"Sqlite indexes do not support INCLUDE columns — index '{index.Name}'.");
         }
 
         // Sqlite has no NULLS FIRST/LAST in an index, so a non-default null ordering is rejected.
         if (index.Columns.Any(c => c.Nulls != IndexNulls.Default))
         {
-            return Error("Sqlite indexes do not support NULLS FIRST / NULLS LAST ordering.");
+            return Unsupported("Sqlite indexes do not support NULLS FIRST / NULLS LAST ordering.");
         }
 
         var keys = string.Join(", ", index.Columns.Select(IndexKeyText));
@@ -267,7 +269,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
         var trigger = action.Trigger;
         if (trigger.Body is not { } body)
         {
-            return Error(
+            return Unsupported(
                 $"Sqlite triggers run an inline body, but trigger '{trigger.Name}' has none (it calls a function). Sqlite has no stored functions; declare it with an AS $$ … $$ body.");
         }
 
@@ -283,7 +285,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
 
         if (trigger.Events is not (TriggerEvent.Insert or TriggerEvent.Update or TriggerEvent.Delete))
         {
-            return Error(
+            return Unsupported(
                 $"Sqlite triggers fire on a single event, but trigger '{trigger.Name}' lists more than one. Declare a separate trigger per event.");
         }
 
@@ -336,14 +338,18 @@ internal sealed class SqliteSqlDialect : SqlDialect
     }
 
     private static Result<IReadOnlyList<SqlStatement>> IdentityColumn(Column column) =>
-        Error($"Sqlite does not support identity columns (column '{column.Name}'). Model an auto-incrementing key as an INTEGER primary key (a rowid alias) instead.");
+        Unsupported($"Sqlite does not support identity columns (column '{column.Name}'). Model an auto-incrementing key as an INTEGER primary key (a rowid alias) instead.");
 
     private static Result<IReadOnlyList<SqlStatement>> NotSupported(string feature) =>
-        Error($"Sqlite does not support {feature}.");
+        Unsupported($"Sqlite does not support {feature:text}.");
 
     private static Result<IReadOnlyList<SqlStatement>> RequiresRebuild(string operation) =>
-        Error($"Sqlite cannot {operation} in place; this requires rebuilding the table, which NSchema.Sqlite does not support. Recreate the table instead.");
+        Error("requires-recreate",
+            $"Sqlite cannot {operation:text} in place; this requires rebuilding the table, which NSchema.Sqlite does not support. Recreate the table instead.");
 
-    private static Result<IReadOnlyList<SqlStatement>> Error(string message) =>
-        Diagnostic.Error("sqlite-dialect", message);
+    // A facet of the declaration that Sqlite has no way to express, whatever the plan asked for.
+    private static Result<IReadOnlyList<SqlStatement>> Unsupported(FormattedText message) => Error("unsupported", message);
+
+    private static Result<IReadOnlyList<SqlStatement>> Error(DiagnosticCode code, FormattedText message) =>
+        Diagnostic.Error("sqlite-dialect", code, message);
 }

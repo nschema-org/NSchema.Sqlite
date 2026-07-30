@@ -67,9 +67,7 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
                         },
                     },
                 ],
-            },
-            // 'main' always exists, so it is declared into rather than created.
-            declareSchemas: false);
+            });
 
     /// <inheritdoc />
     public Result Configure(NSchemaApplicationBuilder builder, PluginSettings settings)

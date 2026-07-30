@@ -32,7 +32,7 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
         }
         catch (DbException exception)
         {
-            return Result.Failure<Database>(Diagnostic.Error(Source,
+            return Result.Failure<Database>(Diagnostic.Error(Source, "database-unreadable",
                 $"Could not read the live database: {ExceptionMessage.Describe(exception):text}"));
         }
     }
@@ -43,7 +43,7 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
         // (The scope is an optimization hint, so the case-insensitive match may over-return; the engine re-applies
         // the scope after every read.)
         if (!scope.IsUnscoped
-            && !scope.Addresses.Any(a => string.Equals(a.SchemaName?.Value, SchemaName, StringComparison.OrdinalIgnoreCase)))
+            && !scope.Addresses.Any(a => string.Equals(SchemaOf(a)?.Value, SchemaName, StringComparison.OrdinalIgnoreCase)))
         {
             return new Database();
         }
@@ -281,4 +281,15 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
     // PRAGMA arguments cannot be parameterized, so the (trusted, database-sourced) table name is embedded as a
     // single-quoted string literal with embedded quotes doubled.
     private static string QuoteLiteral(string value) => $"'{value.Replace("'", "''")}'";
+
+    // An address names the schema it sits in: a schema address is its own, an object and a member each carry
+    // theirs, and an extension belongs to the database rather than to any schema.
+    private static SqlIdentifier? SchemaOf(Address address) => address switch
+    {
+        DatabaseAddress { Kind: DatabaseObjectKind.Schema } schema => schema.Name,
+        ObjectAddress @object => @object.Schema,
+        MemberAddress member => member.Schema,
+        _ => null,
+    };
+
 }
