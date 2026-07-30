@@ -40,12 +40,14 @@ public sealed class SqlitePluginTests : IDisposable
     [Fact]
     public void GetSampleSchema_UsesTheMainSchema()
     {
-        // Act — SQLite exposes everything under 'main' and has no CREATE SCHEMA, so the sample declares into it.
+        // Act — SQLite exposes everything under 'main'.
         var document = _sut.GetSampleSchema();
 
-        // Assert — 'main' is declared into rather than created.
+        // Assert — 'main' is declared, not merely written into: a plan blocks on creating objects in a schema that
+        // nothing declares and the recorded state does not have, which on a first run is every schema. Declaring it
+        // is free — the dialect emits no DDL for a SQLite schema — and without it the sample cannot be applied.
         NsqlWriter.Write(document).ShouldContain("CREATE TABLE main.widgets");
-        document.Statements.OfType<CreateSchemaStatement>().ShouldBeEmpty();
+        document.Statements.OfType<CreateSchemaStatement>().ShouldHaveSingleItem().Name.Value.ShouldBe("main");
     }
 
     [Fact]
