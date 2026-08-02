@@ -10,6 +10,12 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [5.1.0] - 2026-08-02
+
+### Changed
+
+- **`main` is reported as a schema SQLite provides.** It is a container rather than something a migration creates, and declaring it is an error.
+
 ## [5.0.0] - 2026-08-01
 
 Tracks the `NSchema.Core` 5.0.0 rearchitecture (lockstep major versioning). See the core changelog for the engine-wide changes; the provider-facing ones are below.

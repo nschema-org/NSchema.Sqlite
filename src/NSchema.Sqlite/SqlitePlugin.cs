@@ -84,6 +84,7 @@ public sealed class SqlitePlugin : INSchemaDatabasePlugin
             return Result.From(bound.Diagnostics);
         }
 
+        builder.AddProjectPolicy<SqliteProvidedSchemaPolicy>();
         builder.UseSqlite(connectionString);
         return Result.From(bound.Diagnostics);
     }

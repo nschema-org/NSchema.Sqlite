@@ -78,7 +78,14 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
 
         return new Database
         {
-            Schemas = [new Schema { Name = SchemaName, Tables = [.. tables], Views = [.. views] }],
+            // SQLite provides `main` and has no other schema: it is a container, never something a migration creates.
+            Schemas = [new Schema
+            {
+                Name = SchemaName,
+                IsImplicit = true,
+                Tables = [.. tables],
+                Views = [.. views]
+            }],
         };
     }
 
