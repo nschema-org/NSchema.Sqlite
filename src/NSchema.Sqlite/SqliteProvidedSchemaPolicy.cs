@@ -15,5 +15,5 @@ internal sealed class SqliteProvidedSchemaPolicy : IProjectPolicy
     /// <inheritdoc />
     public IEnumerable<Diagnostic> Validate(ProjectDefinition project) => project.Database.Schemas
         .Where(schema => !schema.IsImplicit && schema.Name == Provided)
-        .Select(schema => Diagnostic.Error(Source, "provided-schema-declared", $"SQLite provides the '{schema.Name}' schema, so it will be ignored."));
+        .Select(schema => Diagnostic.Warning(Source, "provided-schema-declared", $"SQLite provides the '{schema.Name}' schema, so it will be ignored."));
 }
