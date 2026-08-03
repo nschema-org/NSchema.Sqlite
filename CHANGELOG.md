@@ -10,6 +10,12 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [5.3.0] - 2026-08-03
+
+### Changed
+
+- **A create is a create.** `CREATE VIEW` no longer drops an existing view first: the unconditional drop-and-create renders only for the new replace action, where the plan knows the view exists. A create colliding with a view the plan didn't know about now fails loudly instead of silently overwriting it.
+
 ## [5.2.0] - 2026-08-03
 
 ### Added

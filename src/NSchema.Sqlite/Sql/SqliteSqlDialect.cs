@@ -240,10 +240,23 @@ internal sealed class SqliteSqlDialect : SqlDialect
             return NotSupported("materialized views");
         }
 
-        // A plain view body change arrives as CreateView (the core relies on CREATE OR REPLACE); Sqlite has none,
-        // so an idempotent DROP precedes the CREATE. This serves a fresh add too (the DROP is a no-op).
+        // A create is a plain CREATE: if the view already exists, the database has drifted from the plan's
+        // belief, and Sqlite saying so is the correct outcome.
+        return Statement($"CREATE VIEW {Qualify(action.SchemaName, action.View.Name)} AS {action.View.Body}");
+    }
+
+    /// <inheritdoc />
+    protected override Result<IReadOnlyList<SqlStatement>> ReplaceView(ReplaceView action)
+    {
+        if (action.View.IsMaterialized)
+        {
+            return NotSupported("materialized views");
+        }
+
+        // Sqlite has no in-place replacement, so a body change decomposes to a drop and a create. The plan
+        // knows the view exists, so the drop is unconditional.
         return Statements(
-            new SqlStatement($"DROP VIEW IF EXISTS {Qualify(action.SchemaName, action.View.Name)}"),
+            new SqlStatement($"DROP VIEW {Qualify(action.SchemaName, action.View.Name)}"),
             new SqlStatement($"CREATE VIEW {Qualify(action.SchemaName, action.View.Name)} AS {action.View.Body}"));
     }
 
