@@ -166,8 +166,9 @@ public sealed class SqliteSqlDialectSnapshotTests
 
     [Fact]
     public Task ViewOperations() => VerifyRendering(
-        // CreateView serves both add and body-modify; Sqlite has no CREATE OR REPLACE, so each is DROP + CREATE.
         new CreateView(Schema, new View { Name = "active_users", Body = "SELECT id, email FROM main.users WHERE active" }),
+        // Sqlite has no in-place replacement, so a body change is DROP + CREATE.
+        new ReplaceView(Schema, new View { Name = "active_users", Body = "SELECT id, email, created_at FROM main.users WHERE active" }),
         new DropView(new(Schema, "active_users")));
 
     // ── Triggers (inline body; single event) ─────────────────────────────────────
@@ -182,6 +183,15 @@ public sealed class SqliteSqlDialectSnapshotTests
             Events = TriggerEvent.Insert,
             Level = TriggerLevel.Row,
             Body = "BEGIN INSERT INTO audit (msg) VALUES ('inserted'); END",
+        }),
+        // Sqlite has no in-place form, so the base decomposes a replacement to the dialect's drop + create.
+        new ReplaceTrigger(new(Schema, "users"), new Trigger
+        {
+            Name = "users_audit",
+            Timing = TriggerTiming.After,
+            Events = TriggerEvent.Insert,
+            Level = TriggerLevel.Row,
+            Body = "BEGIN INSERT INTO audit (msg) VALUES ('inserted again'); END",
         }),
         // BEFORE UPDATE OF (cols) with a WHEN guard.
         new CreateTrigger(new(Schema, "users"), new Trigger

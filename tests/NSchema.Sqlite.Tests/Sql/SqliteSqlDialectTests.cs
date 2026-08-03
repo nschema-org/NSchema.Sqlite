@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using NSchema.Model;
 using NSchema.Model.Columns;
 using NSchema.Model.Constraints;
@@ -153,15 +154,27 @@ public sealed class SqliteSqlDialectTests : SqliteTestBase
     }
 
     [Fact]
-    public async Task CreateView_OnExistingView_ReplacesDefinition()
+    public async Task ReplaceView_OnExistingView_ReplacesDefinition()
     {
-        // CreateView serves both add and body-modify; Sqlite has no CREATE OR REPLACE, so the dialect drops first.
+        // Sqlite has no in-place replacement, so a body change decomposes to a drop and a create.
         await Exec("CREATE TABLE \"users\" (id integer, email text)");
         await Exec("CREATE VIEW \"u\" AS SELECT id FROM \"users\"");
 
-        await Apply(new CreateView(Schema, new View { Name = "u", Body = "SELECT id, email FROM \"users\"" }));
+        await Apply(new ReplaceView(Schema, new View { Name = "u", Body = "SELECT id, email FROM \"users\"" }));
 
         (await Scalar<string>("SELECT sql FROM sqlite_master WHERE name = 'u'")).ShouldContain("email");
+    }
+
+    [Fact]
+    public async Task CreateView_OnExistingView_FailsLoudly()
+    {
+        // A create against something that already exists is drift, and the engine must say so rather than
+        // the dialect absorbing it.
+        await Exec("CREATE TABLE \"users\" (id integer, email text)");
+        await Exec("CREATE VIEW \"u\" AS SELECT id FROM \"users\"");
+
+        await Should.ThrowAsync<SqliteException>(() =>
+            Apply(new CreateView(Schema, new View { Name = "u", Body = "SELECT id, email FROM \"users\"" })));
     }
 
     [Fact]

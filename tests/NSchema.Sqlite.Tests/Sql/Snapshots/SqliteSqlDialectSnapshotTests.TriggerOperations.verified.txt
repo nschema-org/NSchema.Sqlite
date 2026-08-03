@@ -1,6 +1,8 @@
 ﻿{
   statements: [
     CREATE TRIGGER "main"."users_audit" AFTER INSERT ON "users" FOR EACH ROW BEGIN INSERT INTO audit (msg) VALUES ('inserted'); END,
+    DROP TRIGGER "main"."users_audit",
+    CREATE TRIGGER "main"."users_audit" AFTER INSERT ON "users" FOR EACH ROW BEGIN INSERT INTO audit (msg) VALUES ('inserted again'); END,
     CREATE TRIGGER "main"."users_guard" BEFORE UPDATE OF "email", "name" ON "users" FOR EACH ROW WHEN (new.email IS NOT NULL) BEGIN INSERT INTO audit (msg) VALUES ('updated'); END,
     CREATE TRIGGER "main"."users_cleanup" AFTER DELETE ON "users" BEGIN DELETE FROM audit WHERE msg = old.email; END,
     DROP TRIGGER "main"."users_audit"
