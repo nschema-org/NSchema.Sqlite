@@ -45,12 +45,19 @@ public static class NSchemaApplicationBuilderExtensions
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
         public NSchemaApplicationBuilder UseSqlite() => builder
             .UseDatabaseIntrospector<SqliteDatabaseIntrospector>()
-            .UseSqliteDialect();
+            .UseSqliteDialect()
+            .UseSqliteEquivalence();
 
         /// <summary>
         /// Configures the NSchema application to render SQL for Sqlite.
         /// </summary>
         /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
         public NSchemaApplicationBuilder UseSqliteDialect() => builder.UseSqlDialect<SqliteSqlDialect>();
+
+        /// <summary>
+        /// Configures the NSchema application to compare SQL spellings under Sqlite's equivalence rules.
+        /// </summary>
+        /// <returns>The <see cref="NSchemaApplicationBuilder"/> instance, allowing for method chaining.</returns>
+        public NSchemaApplicationBuilder UseSqliteEquivalence() => builder.UseSqlEquivalence<SqliteSqlEquivalence>();
     }
 }

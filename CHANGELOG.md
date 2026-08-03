@@ -10,6 +10,12 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [5.2.0] - 2026-08-03
+
+### Added
+
+- **Type references are never checked for existence.** SQLite accepts any type name — a column's type is advisory — so the provider now declares this (`SqliteSqlEquivalence.ValidatesTypeNames`), and a plan resolves every type reference rather than hedging about names it cannot verify.
+
 ## [5.1.0] - 2026-08-02
 
 ### Changed
