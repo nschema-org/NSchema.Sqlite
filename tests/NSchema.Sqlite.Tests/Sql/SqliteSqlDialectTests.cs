@@ -27,6 +27,21 @@ public sealed class SqliteSqlDialectTests : SqliteTestBase
     // ── Tables and columns ──────────────────────────────────────────────────────
 
     [Fact]
+    public async Task CreateTable_IntColumn_DeclaresIntegerForTheRowidAlias()
+    {
+        // INTEGER is the one spelling under which a primary key is the rowid alias; INT is an ordinary
+        // column. A round trip must not quietly change the table's shape.
+        await Apply(new CreateTable(Schema, new Table
+        {
+            Name = "t",
+            PrimaryKey = new PrimaryKey { Name = "pk_t", ColumnNames = ["id"] },
+            Columns = [new Column { Name = "id", Type = SqlType.Int, IsNullable = false }],
+        }));
+
+        (await Scalar<string>("SELECT sql FROM sqlite_master WHERE name = 't'")).ShouldContain("INTEGER");
+    }
+
+    [Fact]
     public async Task CreateTable_CreatesTableWithColumns()
     {
         await Apply(new CreateTable(Schema, new Table
