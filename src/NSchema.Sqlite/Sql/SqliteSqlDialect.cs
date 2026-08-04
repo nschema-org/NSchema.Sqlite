@@ -341,8 +341,10 @@ internal sealed class SqliteSqlDialect : SqlDialect
     {
         // Sqlite stores a column's declared type verbatim and applies type affinity by name, so emitting NSchema's
         // canonical type string (e.g. "bigint", "varchar(255)") lets the introspector parse it straight back with
-        // SqlType.Parse — no information is lost to affinity collapse.
-        var type = column.Type.ToString();
+        // SqlType.Parse — except int, which must render as INTEGER: only that exact spelling makes a primary key
+        // the rowid alias, and the introspected INTEGER parses to int, so any other spelling would quietly change
+        // the table's shape on a round trip.
+        var type = column.Type == SqlType.Int ? "INTEGER" : column.Type.ToString();
         var nullable = column.IsNullable ? "" : " NOT NULL";
         // A generated column is mutually exclusive with a default (the core's structural policy enforces this).
         var def = column is { DefaultExpression: { } d, GeneratedExpression: null } ? $" DEFAULT {d}" : "";

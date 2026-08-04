@@ -4,7 +4,7 @@
     "boolean" boolean,
     "tinyint" tinyint,
     "smallint" smallint,
-    "int" int,
+    "int" INTEGER,
     "bigint" bigint,
     "float" float,
     "double" double,
