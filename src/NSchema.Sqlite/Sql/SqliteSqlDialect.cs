@@ -194,6 +194,12 @@ internal sealed class SqliteSqlDialect : SqlDialect
             return Unsupported($"Sqlite cannot index a view — index '{index.Name}'.");
         }
 
+        // Sqlite has no XML type, so nothing to shred and no node table to index.
+        if (index.Xml is not null)
+        {
+            return Unsupported($"Sqlite has no XML indexes — index '{index.Name}'.");
+        }
+
         if (index.Method is not null)
         {
             return Unsupported($"Sqlite indexes have no access method (USING) — index '{index.Name}' specifies '{index.Method}'.");
