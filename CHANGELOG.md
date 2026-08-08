@@ -10,6 +10,12 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [Unreleased]
+
+### Added
+
+- **Schema binding and view indexes are reported.** SQLite re-parses a view at each use and stores nothing to index, so a declaration that binds a view to its schema or puts an index on one is now an error diagnostic on the plan rather than something the plan quietly drops.
+
 ## [5.3.1] - 2026-08-03
 
 ### Fixed

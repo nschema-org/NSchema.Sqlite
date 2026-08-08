@@ -8,6 +8,7 @@ using NSchema.Model.Schemas;
 using NSchema.Model.Tables;
 using NSchema.Model.Triggers;
 using NSchema.Model.Views;
+using NSchema.Sqlite.Sql.Ddl;
 
 namespace NSchema.Sqlite.Sql;
 
