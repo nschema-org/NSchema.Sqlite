@@ -12,6 +12,10 @@ As a consequence, breaking changes that are specific to this provider (rather th
 
 ## [Unreleased]
 
+### Added
+
+- **`SupportsRestrict`** is declared, so `RESTRICT` is rendered rather than dropped.
+
 ### Changed
 
 - **The build now writes the full dependency closure beside the assembly** (`CopyLocalLockFileAssemblies`), so a `dotnet build` of this project can be loaded directly by `PLUGIN ( path = '...' )` without being packed first. Package contents are unchanged.
@@ -19,10 +23,7 @@ As a consequence, breaking changes that are specific to this provider (rather th
 ### Fixed
 
 - **`RESTRICT` is no longer parsed as `NO ACTION`.** The DDL parser recognised `CASCADE`, `SET NULL` and `SET DEFAULT` and let everything else fall through, so a foreign key declaring `RESTRICT` came back declaring nothing.
-
-### Added
-
-- **`SupportsRestrict`** is declared, so `RESTRICT` is rendered rather than dropped.
+- **Generated columns are no longer all `STORED`.** Sqlite defaults to `VIRTUAL`, and the dialect emitted `STORED` unconditionally, so a virtual column round-tripped as a stored one.
 
 ## [5.4.0] - 2026-08-09
 
