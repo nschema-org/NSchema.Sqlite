@@ -3,7 +3,7 @@ using NSchema.Model.Indexes;
 using NSchema.Model.Tables;
 using NSchema.Model.Triggers;
 
-namespace NSchema.Sqlite.Sql;
+namespace NSchema.Sqlite.Sql.Ddl;
 
 // Sqlite's PRAGMAs do not expose constraint names, check expressions, generated-column expressions, or the
 // columns of an expression index. The only place those survive is the original CREATE statement, which Sqlite
@@ -14,68 +14,6 @@ namespace NSchema.Sqlite.Sql;
 // It is deliberately tolerant — anything it cannot interpret is skipped rather than throwing — because the goal
 // is to recover the author's names and expressions, not to fully validate Sqlite syntax. Column facts
 // (type/nullability/default) come from PRAGMA table_xinfo instead, so this never has to parse a DEFAULT value.
-
-internal enum SqliteTokenKind
-{
-    /// <summary>
-    /// A bareword (keyword, number, or unquoted identifier) or an unquoted-here quoted identifier.
-    /// </summary>
-    Word,
-
-    /// <summary>
-    /// A single-quoted string literal, captured raw including its quotes.
-    /// </summary>
-    String,
-
-    /// <summary>
-    /// A balanced parenthesised run, captured as its inner text (without the outer parentheses).
-    /// </summary>
-    Parens,
-
-    /// <summary>
-    /// A single punctuation character (comma, dot, operator, …).
-    /// </summary>
-    Symbol,
-}
-
-internal readonly record struct SqliteToken(SqliteTokenKind Kind, string Text, bool Quoted = false)
-{
-    public bool IsWord(string keyword) => Kind == SqliteTokenKind.Word && !Quoted && string.Equals(Text, keyword, StringComparison.OrdinalIgnoreCase);
-}
-
-internal sealed record ParsedPrimaryKey(string? Name, IReadOnlyList<string> Columns);
-
-internal sealed record ParsedForeignKey(
-    string? Name,
-    IReadOnlyList<string> Columns,
-    string ReferencedTable,
-    IReadOnlyList<string> ReferencedColumns,
-    ReferentialAction OnDelete,
-    ReferentialAction OnUpdate);
-
-internal sealed record ParsedUnique(string? Name, IReadOnlyList<string> Columns);
-
-internal sealed record ParsedCheck(string? Name, string Expression);
-
-internal sealed record SqliteTableDefinition(
-    ParsedPrimaryKey? PrimaryKey,
-    IReadOnlyList<ParsedForeignKey> ForeignKeys,
-    IReadOnlyList<ParsedUnique> UniqueConstraints,
-    IReadOnlyList<ParsedCheck> CheckConstraints,
-    IReadOnlyDictionary<string, string> GeneratedExpressions);
-
-internal sealed record SqliteIndexDefinition(
-    bool IsUnique,
-    IReadOnlyList<IndexColumn> Columns,
-    string? Predicate);
-
-internal sealed record ParsedTrigger(
-    TriggerTiming Timing,
-    TriggerEvent Events,
-    IReadOnlyList<string> UpdateOfColumns,
-    bool ForEachRow,
-    string? When,
-    string Body);
 
 internal static class SqliteDdl
 {

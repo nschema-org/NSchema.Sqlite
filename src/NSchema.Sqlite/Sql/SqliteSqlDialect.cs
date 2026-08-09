@@ -187,6 +187,19 @@ internal sealed class SqliteSqlDialect : SqlDialect
     protected override Result<IReadOnlyList<SqlStatement>> CreateIndex(CreateIndex action)
     {
         var index = action.Index;
+
+        // A Sqlite view stores nothing, so there is nothing to index: CREATE INDEX takes a table only.
+        if (action.OnView)
+        {
+            return Unsupported($"Sqlite cannot index a view — index '{index.Name}'.");
+        }
+
+        // Sqlite has no XML type, so nothing to shred and no node table to index.
+        if (index.Xml is not null)
+        {
+            return Unsupported($"Sqlite has no XML indexes — index '{index.Name}'.");
+        }
+
         if (index.Method is not null)
         {
             return Unsupported($"Sqlite indexes have no access method (USING) — index '{index.Name}' specifies '{index.Method}'.");
@@ -240,6 +253,18 @@ internal sealed class SqliteSqlDialect : SqlDialect
             return NotSupported("materialized views");
         }
 
+        // Sqlite has no schema binding: a view is parsed at each use, and what it reads may be dropped from
+        // under it. Declaring the binding is a promise Sqlite cannot keep, so it is refused rather than ignored.
+        if (action.View.IsSchemaBound)
+        {
+            return NotSupported("schema-bound views");
+        }
+
+        if (action.View.Indexes.Count > 0)
+        {
+            return NotSupported("indexes on views");
+        }
+
         // A create is a plain CREATE: if the view already exists, the database has drifted from the plan's
         // belief, and Sqlite saying so is the correct outcome.
         return Statement($"CREATE VIEW {Qualify(action.SchemaName, action.View.Name)} AS {action.View.Body}");
@@ -251,6 +276,11 @@ internal sealed class SqliteSqlDialect : SqlDialect
         if (action.View.IsMaterialized)
         {
             return NotSupported("materialized views");
+        }
+
+        if (action.View.IsSchemaBound)
+        {
+            return NotSupported("schema-bound views");
         }
 
         // Sqlite has no in-place replacement, so a body change decomposes to a drop and a create. The plan
