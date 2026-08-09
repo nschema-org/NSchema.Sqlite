@@ -410,6 +410,11 @@ internal static class SqliteDdl
             return ReferentialAction.Cascade;
         }
 
+        if (tokens[i].IsWord("RESTRICT"))
+        {
+            return ReferentialAction.Restrict;
+        }
+
         if (tokens[i].IsWord("SET") && i + 1 < tokens.Count)
         {
             return tokens[i + 1].IsWord("NULL") ? ReferentialAction.SetNull
@@ -417,7 +422,7 @@ internal static class SqliteDdl
                 : ReferentialAction.NoAction;
         }
 
-        return ReferentialAction.NoAction; // NO ACTION, RESTRICT
+        return ReferentialAction.NoAction; // NO ACTION
     }
 
     // ── CREATE INDEX ──────────────────────────────────────────────────────────

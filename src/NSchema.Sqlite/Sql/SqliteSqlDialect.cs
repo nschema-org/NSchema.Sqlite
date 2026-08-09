@@ -33,6 +33,13 @@ namespace NSchema.Sqlite.Sql;
 /// </remarks>
 internal sealed class SqliteSqlDialect : SqlDialect
 {
+
+    /// <summary>
+    /// Sqlite has RESTRICT, and treats it as distinct from NO ACTION: the check runs immediately rather than being
+    /// deferred to the end of the statement.
+    /// </summary>
+    public override bool SupportsRestrict => true;
+
     private const string MainSchema = "main";
 
     public override bool CanAlterForeignKeys => false;
