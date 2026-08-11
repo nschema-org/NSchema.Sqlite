@@ -10,6 +10,21 @@ This package uses **lockstep major versioning** with the `NSchema.Core` package:
 
 As a consequence, breaking changes that are specific to this provider (rather than the core API) are signalled by a **minor version bump** rather than a major one, and called out explicitly in this changelog.
 
+## [5.5.0] - 2026-08-11
+
+### Added
+
+- **`SupportsRestrict`** is declared, so `RESTRICT` is rendered rather than dropped.
+
+### Changed
+
+- **The build now writes the full dependency closure beside the assembly** (`CopyLocalLockFileAssemblies`), so a `dotnet build` of this project can be loaded directly by `PLUGIN ( path = '...' )` without being packed first. Package contents are unchanged.
+
+### Fixed
+
+- **`RESTRICT` is no longer parsed as `NO ACTION`.** The DDL parser recognised `CASCADE`, `SET NULL` and `SET DEFAULT` and let everything else fall through, so a foreign key declaring `RESTRICT` came back declaring nothing.
+- **Generated columns are no longer all `STORED`.** Sqlite defaults to `VIRTUAL`, and the dialect emitted `STORED` unconditionally, so a virtual column round-tripped as a stored one.
+
 ## [5.4.0] - 2026-08-09
 
 ### Added

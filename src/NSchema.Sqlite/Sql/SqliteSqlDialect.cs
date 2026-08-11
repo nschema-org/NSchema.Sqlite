@@ -33,6 +33,17 @@ namespace NSchema.Sqlite.Sql;
 /// </remarks>
 internal sealed class SqliteSqlDialect : SqlDialect
 {
+    /// <summary>
+    /// Sqlite computes a generated column on read unless it is declared STORED.
+    /// </summary>
+    public override bool SupportsVirtualGeneratedColumns => true;
+
+    /// <summary>
+    /// Sqlite has RESTRICT, and treats it as distinct from NO ACTION: the check runs immediately rather than being
+    /// deferred to the end of the statement.
+    /// </summary>
+    public override bool SupportsRestrict => true;
+
     private const string MainSchema = "main";
 
     public override bool CanAlterForeignKeys => false;
@@ -378,7 +389,11 @@ internal sealed class SqliteSqlDialect : SqlDialect
         var nullable = column.IsNullable ? "" : " NOT NULL";
         // A generated column is mutually exclusive with a default (the core's structural policy enforces this).
         var def = column is { DefaultExpression: { } d, GeneratedExpression: null } ? $" DEFAULT {d}" : "";
-        var generated = column.GeneratedExpression is { } g ? $" GENERATED ALWAYS AS ({g}) STORED" : "";
+        // STORED was unconditional here too. Sqlite defaults to VIRTUAL, so a virtual column round-tripped as a
+        // stored one — same values, different storage and different cost on write.
+        var generated = column.GeneratedExpression is { } g
+            ? $" GENERATED ALWAYS AS ({g}) {(column.IsStored ? "STORED" : "VIRTUAL")}"
+            : "";
         return $"{Quote(column.Name)} {type}{nullable}{def}{generated}";
     }
 

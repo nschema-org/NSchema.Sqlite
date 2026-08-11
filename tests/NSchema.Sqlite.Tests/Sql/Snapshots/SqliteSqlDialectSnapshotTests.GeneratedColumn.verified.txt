@@ -3,7 +3,7 @@
     CREATE TABLE "main"."boxes" (
     "w" INTEGER NOT NULL,
     "h" INTEGER NOT NULL,
-    "area" INTEGER GENERATED ALWAYS AS (w * h) STORED
+    "area" INTEGER GENERATED ALWAYS AS (w * h) VIRTUAL
 )
   ]
 }
