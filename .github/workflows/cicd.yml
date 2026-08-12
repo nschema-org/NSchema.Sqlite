@@ -54,4 +54,3 @@ jobs:
           Build__NuGetApiKey: ${{ secrets.NUGET_API_KEY }}
           Build__ProjectFile: 'src/NSchema.Sqlite/NSchema.Sqlite.csproj'
           Build__CommitSha: ${{ github.sha }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
