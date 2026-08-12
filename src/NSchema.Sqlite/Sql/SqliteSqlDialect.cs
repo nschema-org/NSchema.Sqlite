@@ -70,7 +70,10 @@ internal sealed class SqliteSqlDialect : SqlDialect
         NotSupported("schemas other than 'main'");
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> SetSchemaComment(SetSchemaComment action) => Skipped(action);
+    public override bool SupportsComments => false;
+
+    /// <inheritdoc />
+    protected override Result<IReadOnlyList<SqlStatement>> SetSchemaComment(SetSchemaComment action) => Statements();
 
     // ── Tables ──────────────────────────────────────────────────────────────────
 
@@ -158,7 +161,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
         NotSupported("grants");
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> SetTableComment(SetTableComment action) => Skipped(action);
+    protected override Result<IReadOnlyList<SqlStatement>> SetTableComment(SetTableComment action) => Statements();
 
     // ── Columns (only ADD / DROP / RENAME are native to Sqlite) ─────────────────
 
@@ -187,10 +190,10 @@ internal sealed class SqliteSqlDialect : SqlDialect
         NotSupported("identity columns");
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> SetColumnComment(SetColumnComment action) => Skipped(action);
+    protected override Result<IReadOnlyList<SqlStatement>> SetColumnComment(SetColumnComment action) => Statements();
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> SetConstraintComment(SetConstraintComment action) => Skipped(action);
+    protected override Result<IReadOnlyList<SqlStatement>> SetConstraintComment(SetConstraintComment action) => Statements();
 
     // ── Indexes ─────────────────────────────────────────────────────────────────
 
@@ -238,7 +241,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
         Statement($"DROP INDEX {Qualify(action.Index.Schema, action.Index.Member)}");
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> SetIndexComment(SetIndexComment action) => Skipped(action);
+    protected override Result<IReadOnlyList<SqlStatement>> SetIndexComment(SetIndexComment action) => Statements();
 
     // A plain column key is quoted; an expression key is parenthesised and verbatim. ASC/DESC is emitted only
     // when explicit.
@@ -309,7 +312,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
         NotSupported("renaming a view (drop and recreate it instead)");
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> SetViewComment(SetViewComment action) => Skipped(action);
+    protected override Result<IReadOnlyList<SqlStatement>> SetViewComment(SetViewComment action) => Statements();
 
     // ── Triggers (inline body; Sqlite has no CREATE OR REPLACE, so a change is a drop + recreate) ──
 
@@ -355,7 +358,7 @@ internal sealed class SqliteSqlDialect : SqlDialect
         Statement($"DROP TRIGGER {Qualify(action.Trigger.Schema, action.Trigger.Member)}");
 
     /// <inheritdoc />
-    protected override Result<IReadOnlyList<SqlStatement>> SetTriggerComment(SetTriggerComment action) => Skipped(action);
+    protected override Result<IReadOnlyList<SqlStatement>> SetTriggerComment(SetTriggerComment action) => Statements();
 
     // The single fired event. UPDATE may be narrowed to columns (written unparenthesised, as Sqlite expects).
     private string TriggerEventText(Trigger trigger)

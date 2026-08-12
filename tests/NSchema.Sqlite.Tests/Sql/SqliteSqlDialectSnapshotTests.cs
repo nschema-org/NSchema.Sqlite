@@ -286,7 +286,7 @@ public sealed class SqliteSqlDialectSnapshotTests
     // ── Comments are skipped (Sqlite has no COMMENT ON) ─────────────────────────
 
     [Fact]
-    public void CommentActions_ProduceNoStatements_AndWarn()
+    public void CommentActions_ProduceNoStatements()
     {
         var dialect = new SqliteSqlDialect();
 
@@ -295,10 +295,8 @@ public sealed class SqliteSqlDialectSnapshotTests
 
         table.IsSuccess.ShouldBeTrue();
         table.Require().ShouldBeEmpty();
-        table.Warnings.ShouldHaveSingleItem().Message.ShouldContain("skipped");
         column.IsSuccess.ShouldBeTrue();
         column.Require().ShouldBeEmpty();
-        column.Warnings.ShouldHaveSingleItem().Message.ShouldContain("skipped");
     }
 
     // ── Scripts pass through verbatim ───────────────────────────────────────────

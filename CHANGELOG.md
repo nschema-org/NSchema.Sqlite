@@ -4,6 +4,12 @@ All notable changes to NSchema.Sqlite will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project (mostly) adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.5.1] - 2026-08-12
+
+### Fixed
+
+- **Documentation is reported once, not once per action.** Sqlite records no comment anywhere, so it now declares `SupportsComments = false` and renders the comment actions as nothing.
+
 ## Versioning policy
 
 This package uses **lockstep major versioning** with the `NSchema.Core` package: `NSchema.Sqlite X.*.*` requires `NSchema.Core X.*.*`, so version compatibility is always clear.
