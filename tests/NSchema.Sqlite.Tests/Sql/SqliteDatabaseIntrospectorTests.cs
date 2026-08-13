@@ -108,4 +108,30 @@ public sealed class SqliteDatabaseIntrospectorTests : SqliteTestBase
         table.UniqueConstraints.ShouldHaveSingleItem().Name.Value.ShouldBe("uq_t_code");
         table.Indexes.ShouldHaveSingleItem().Name.Value.ShouldBe("idx_t_id");
     }
+
+    [Fact]
+    public async Task GeneratedColumns_ReportWhetherTheyAreStored()
+    {
+        // table_xinfo's `hidden` is the only place the distinction is recorded: 2 for VIRTUAL, 3 for STORED. Reading
+        // one back as the other makes every deploy ask to change the column again.
+        await Exec("""
+            CREATE TABLE "t" (
+                "a" bigint NOT NULL,
+                "v" bigint GENERATED ALWAYS AS (a * 2) VIRTUAL,
+                "s" bigint GENERATED ALWAYS AS (a * 3) STORED
+            )
+            """);
+
+        var columns = (await Introspect()).Schemas[0].Tables.Single().Columns;
+
+        var virtualColumn = columns.Single(c => c.Name.Value == "v");
+        virtualColumn.GeneratedExpression.ShouldNotBeNull();
+        virtualColumn.IsStored.ShouldBeFalse();
+
+        var storedColumn = columns.Single(c => c.Name.Value == "s");
+        storedColumn.GeneratedExpression.ShouldNotBeNull();
+        storedColumn.IsStored.ShouldBeTrue();
+
+        columns.Single(c => c.Name.Value == "a").IsStored.ShouldBeFalse();
+    }
 }
