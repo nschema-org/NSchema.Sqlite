@@ -4,6 +4,12 @@ All notable changes to NSchema.Sqlite will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project (mostly) adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.5.2] - 2026-08-13
+
+### Fixed
+
+- **A stored generated column is no longer read back as virtual.**
+
 ## [5.5.1] - 2026-08-12
 
 ### Fixed

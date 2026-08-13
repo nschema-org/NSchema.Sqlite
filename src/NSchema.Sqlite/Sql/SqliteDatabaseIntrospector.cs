@@ -138,6 +138,7 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
                 IsNullable = !row.NotNull,
                 DefaultExpression = row.Default,
                 GeneratedExpression = generated.GetValueOrDefault(row.Name),
+                IsStored = row.IsStored,
             });
 
             if (row.PrimaryKeyPosition > 0)
@@ -252,14 +253,15 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
 
     // ── Columns (PRAGMA table_xinfo) ─────────────────────────────────────────────
 
-    private readonly record struct ColumnRow(string Name, string Type, bool NotNull, string? Default, int PrimaryKeyPosition);
+    private readonly record struct ColumnRow(string Name, string Type, bool NotNull, string? Default, int PrimaryKeyPosition, bool IsStored);
 
     private static async IAsyncEnumerable<ColumnRow> ReadColumns(
         DbConnection connection, string tableName, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
         await using var command = connection.CreateCommand();
-        // table_xinfo includes generated columns; `hidden` is 0 for ordinary columns and 2/3 for generated ones,
-        // while 1 marks a genuinely hidden (virtual-table) column, which is not part of the declared schema.
+        // table_xinfo includes generated columns; `hidden` is 0 for ordinary columns, 2 for a VIRTUAL generated one
+        // and 3 for a STORED one, while 1 marks a genuinely hidden (virtual-table) column, which is not part of the
+        // declared schema.
         command.CommandText = $"PRAGMA table_xinfo({QuoteLiteral(tableName)})";
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -275,7 +277,8 @@ internal sealed class SqliteDatabaseIntrospector(SqliteConnectionSource source) 
                 Type: reader.GetString(2),
                 NotNull: reader.GetInt32(3) != 0,
                 Default: reader.IsDBNull(4) ? null : reader.GetString(4),
-                PrimaryKeyPosition: reader.GetInt32(5));
+                PrimaryKeyPosition: reader.GetInt32(5),
+                IsStored: hidden == 3);
         }
     }
 
