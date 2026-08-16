@@ -141,6 +141,19 @@ First release of the Sqlite provider for NSchema, tracking NSchema 3.0.0.
 - `SqliteSqlGenerator` — `ISqlGenerator` implementation that translates an NSchema `MigrationPlan` into Sqlite DDL, supporting the features Sqlite has and raising a clear `NotSupportedException` for those it does not.
 - SourceLink and symbol packages (`.snupkg`) published alongside the main package for source-level debugging.
 
+[5.5.2]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.5.1...v5.5.2
+[5.5.1]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.5.0...v5.5.1
+[5.5.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.4.0...v5.5.0
+[5.4.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.3.1...v5.4.0
+[5.3.1]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.3.0...v5.3.1
+[5.3.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.2.0...v5.3.0
+[5.2.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.1.0...v5.2.0
+[5.1.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v5.0.0...v5.1.0
+[5.0.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v4.3.0...v5.0.0
+[4.3.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v4.0.0...v4.3.0
+[4.0.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v3.2.1...v4.0.0
+[3.2.1]: https://github.com/nschema-org/NSchema.Sqlite/compare/v3.2.0...v3.2.1
+[3.2.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/nschema-org/NSchema.Sqlite/compare/v3.0.1...v3.1.0
 [3.0.1]: https://github.com/nschema-org/NSchema.Sqlite/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/nschema-org/NSchema.Sqlite/releases/tag/v3.0.0
